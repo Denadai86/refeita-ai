@@ -1,99 +1,89 @@
-// Refeita.AI/src/components/RecipeDisplay.tsx
+// src/components/RecipeDisplay.tsx
+
 'use client';
 
-import React from 'react';
-import { RecipeDetail } from '@/types/recipe';
-import { Utensils, Clock, User, Heart, Star, Send } from 'lucide-react';
+import { RecipeDetail, IngredientItem } from '@/types/recipe';
+import ReactMarkdown from 'react-markdown';
+import { Clock, Users, Utensils, Zap } from 'lucide-react';
 
-type RecipeDisplayProps = {
+interface RecipeDisplayProps {
   recipe: RecipeDetail;
-  index: number;
-};
+}
 
-/**
- * Exibe uma única receita gerada pela IA de forma estruturada.
- */
-export default function RecipeDisplay({ recipe, index }: RecipeDisplayProps) {
+export default function RecipeDisplay({ recipe }: RecipeDisplayProps) {
+  if (!recipe) return null;
+
   return (
-    <div className="bg-white p-6 rounded-xl shadow-2xl border border-green-100 mb-8 hover:shadow-green-200 transition duration-300">
+    <div className="p-8 bg-white rounded-xl shadow-2xl border-t-4 border-green-600 space-y-8">
       
-      {/* Cabeçalho da Receita */}
-      <header className="border-b pb-4 mb-4 flex justify-between items-start">
-        <div>
-          <h2 className="text-2xl font-bold text-blue-700">
-            {index + 1}. {recipe.recipeName}
-          </h2>
-          <p className="text-sm text-gray-600 mt-1">{recipe.description}</p>
-        </div>
-        {/* Botão de Salvar (Futuro: Requer Autenticação) */}
-        <button
-            className="bg-red-100 text-red-600 p-2 rounded-full hover:bg-red-200 transition duration-150"
-            aria-label="Salvar Receita"
-            title="Salvar (Recurso Pro)"
-        >
-            <Heart className="h-5 w-5" />
-        </button>
-      </header>
+      {/* Cabeçalho */}
+      <div className="text-center border-b pb-4">
+        <h1 className="text-4xl font-extrabold text-green-700 mb-2">{recipe.recipeName}</h1>
+        <p className="text-xl text-gray-600 italic">{recipe.description}</p>
+      </div>
 
-      {/* Metadados */}
-      <div className="flex space-x-6 text-sm text-gray-500 mb-6">
-        <div className="flex items-center">
-          <Clock className="h-4 w-4 mr-2 text-green-500" />
-          <span>Preparo: {recipe.prepTime}</span>
+      {/* Meta Dados */}
+      <div className="flex justify-around items-center bg-gray-50 p-4 rounded-lg shadow-inner">
+        <div className="flex flex-col items-center">
+          <Clock className="w-6 h-6 text-green-500" />
+          <span className="text-lg font-bold mt-1 text-gray-800">{recipe.prepTime} min</span>
+          <span className="text-sm text-gray-500">Preparo</span>
         </div>
-        <div className="flex items-center">
-          <User className="h-4 w-4 mr-2 text-green-500" />
-          <span>Serve: {recipe.servings} pessoas</span>
+        <div className="flex flex-col items-center">
+          <Users className="w-6 h-6 text-green-500" />
+          <span className="text-lg font-bold mt-1 text-gray-800">{recipe.servings}</span>
+          <span className="text-sm text-gray-500">Porções</span>
+        </div>
+        <div className="flex flex-col items-center">
+          <Zap className="w-6 h-6 text-green-500" />
+          <span className="text-lg font-bold mt-1 text-gray-800">Gemini AI</span>
+          <span className="text-sm text-gray-500">Gerado por</span>
         </div>
       </div>
 
-      {/* Ingredientes e Instruções (Grid) */}
-      <div className="grid md:grid-cols-2 gap-8">
+      {/* Ingredientes e Instruções */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
         
         {/* Coluna 1: Ingredientes */}
-        <div>
-          <h3 className="text-xl font-semibold mb-3 text-gray-800 border-b pb-1">
-            Ingredientes Necessários
+        <div className="space-y-4">
+          <h3 className="text-2xl font-bold text-gray-800 border-b pb-2 flex items-center">
+            <Utensils className="w-5 h-5 mr-2" /> Ingredientes
           </h3>
-          <ul className="list-disc list-inside space-y-2 text-gray-700">
-            {recipe.ingredients.map((ing, i) => (
-              <li key={i} className="flex justify-between pl-4 relative before:content-['•'] before:absolute before:left-0 before:text-green-600">
-                <span className="font-medium">{ing.name}</span>
-                <span className="text-gray-500">{ing.quantity}</span>
+          <ul className="list-disc pl-5 space-y-2 text-gray-700">
+            {recipe.ingredients.map((item: IngredientItem, index) => (
+              <li key={index}>
+                <span className="font-semibold">{item.quantity}</span> de {item.name}
               </li>
             ))}
           </ul>
         </div>
-
+        
         {/* Coluna 2: Instruções */}
-        <div>
-          <h3 className="text-xl font-semibold mb-3 text-gray-800 border-b pb-1">
+        <div className="space-y-4">
+          <h3 className="text-2xl font-bold text-gray-800 border-b pb-2">
             Modo de Preparo
           </h3>
-          <ol className="list-decimal list-outside space-y-3 text-gray-700 pl-5">
-            {recipe.instructions.map((step, i) => (
-              <li key={i}>
-                <p className='font-medium'>Passo {i + 1}:</p>
-                <p className="text-sm">{step}</p>
+          {/* Usamos ReactMarkdown para renderizar a lista de instruções em Markdown */}
+          <ol className="list-decimal pl-5 space-y-3 text-gray-700">
+            {recipe.instructions.map((step, index) => (
+              <li key={index}>
+                <ReactMarkdown>{step}</ReactMarkdown>
               </li>
             ))}
           </ol>
         </div>
       </div>
       
-      {/* Dicas (Opcional) */}
+      {/* Dicas (se houver) */}
       {recipe.tips && recipe.tips.length > 0 && (
-          <div className="mt-8 pt-4 border-t border-gray-200">
-              <h3 className="text-lg font-semibold mb-2 text-gray-800 flex items-center">
-                  <Star className="h-5 w-5 mr-2 text-yellow-500 fill-yellow-500" />
-                  Dicas do Chef IA
-              </h3>
-              <ul className="list-disc list-inside text-sm text-gray-600 pl-4 space-y-1">
-                  {recipe.tips.map((tip, i) => (
-                      <li key={i}>{tip}</li>
-                  ))}
-              </ul>
-          </div>
+        <div className="p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-lg">
+          <h4 className="font-bold text-yellow-800">Dicas do Chef</h4>
+          <ul className="list-disc pl-5 mt-2 text-yellow-700">
+             {recipe.tips.map((tip, index) => (
+                <li key={index}><ReactMarkdown>{tip}</ReactMarkdown></li>
+             ))}
+          </ul>
+        </div>
       )}
     </div>
   );

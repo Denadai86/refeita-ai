@@ -1,38 +1,64 @@
 // src/types/recipe.ts
 
-// Estrutura de entrada do formulário (FormData)
+// ===============================================
+// 1. INPUTS DO FORMULÁRIO
+// ===============================================
+
+export type PrepTimeOption =
+  | "SuperRápido(até 15min)"
+  | "Rápido (até 30min)"
+  | "Normal (30-60min)"
+  | "Qualquer";
+
 export type RecipeFormInput = {
-  mainIngredients: string; // Ex: 'frango, batata, cenoura'
-  restrictions: string; // Ex: 'vegetariano, sem glúten'
-  prepTimePreference: 'SuperRápido(até 15min)'|'Rápido (até 30min)' | 'Normal (30-60min)' | 'Qualquer';
-  cuisinePreference: string; // Ex: 'italiana, brasileira, asiática'
-  numberOfRecipes: number; // Quantas receitas gerar (Ex: 3)
+  mainIngredients: string;
+  restrictions?: string;
+  prepTimePreference: PrepTimeOption;
+  cuisinePreference: string;
+  numberOfRecipes: number;
 };
 
-// Estrutura esperada do JSON de SAÍDA do Gemini para uma única receita
+// ===============================================
+// 2. SAÍDA DO LLM (sempre ARRAY)
+// ===============================================
+
+export type IngredientItem = {
+  name: string;
+  quantity: string;
+};
+
 export type RecipeDetail = {
   recipeName: string;
   description: string;
-  prepTime: string; // Ex: "45 minutos"
+  prepTime: number; // minutos
   servings: number;
-  ingredients: { name: string; quantity: string }[];
-  instructions: string[]; // Passos detalhados
-  tips: string[]; // Dicas extras
+  ingredients: IngredientItem[];
+  instructions: string[];
+  tips: string[];
 };
 
-// Estrutura final que será salva no Firestore
-export type GeneratedRecipe = {
-  id: string; // Gerado pelo Firestore
+// Tipo de retorno do llm.ts
+export type RecipeResponse = RecipeDetail[];
+
+// ===============================================
+// 3. FIRESTORE — Modelo salvo
+// ===============================================
+
+export type GeneratedRecipeModel = {
   userId: string | null;
-  inputData: RecipeFormInput; // Para referência
-  generatedRecipes: RecipeDetail[]; // Array de receitas geradas
-  createdAt: firebase.firestore.Timestamp;
+  inputData: RecipeFormInput;
+  generatedRecipes: RecipeDetail[];
+  createdAt: number; // timestamp (ms)
 };
 
-// Estrutura de retorno da Server Action
+// ===============================================
+// 4. RETORNO DA SERVER ACTION
+// ===============================================
+
 export type RecipeActionState = {
   success: boolean;
   message: string;
-  recipeBatchId?: string; // ID do documento salvo no Firestore
-  recipes?: RecipeDetail[]; // Conteúdo para exibição imediata
+  recipeBatchId?: string;
+  recipes?: RecipeDetail[];
+  errorDetails?: { field: string; message: string }[];
 };
