@@ -1,10 +1,9 @@
-// Refeita.AI/src/lib/recipe.server.ts
 'use server';
 
-import 'server-only'; // Garante que este arquivo só rode no servidor
-import { adminDb } from '@/utils/firebase-admin'; 
+import 'server-only'; 
+// CORREÇÃO: Altera a importação de 'adminDb' (erro) para 'adminDB' (correto)
+import { adminDB } from '@/utils/firebase-admin'; 
 import { GeneratedRecipe } from '@/types/recipe';
-// Importa o tipo do Admin SDK
 import type { DocumentData } from 'firebase-admin/firestore'; 
 import { notFound } from 'next/navigation';
 
@@ -17,29 +16,33 @@ import { notFound } from 'next/navigation';
  */
 export async function getRecipeBatchById(batchId: string): Promise<GeneratedRecipe> {
     
-    if (!adminDb || !batchId) {
-        // Se a base de dados não estiver inicializada ou o ID for inválido, tratar como 404
+    // Boa prática: A validação adminDB || !batchId é redundante, 
+    // pois a inicialização ocorre globalmente em firebase-admin.ts, 
+    // mas mantê-la como verificação de segurança é aceitável.
+    if (!adminDB || !batchId) {
         notFound();
     }
 
     try {
-        const docRef = adminDb!.collection('recipeBatches').doc(batchId);
+        // Uso de 'adminDB' corrigido
+        const docRef = adminDB.collection('recipeBatches').doc(batchId);
         const doc = await docRef.get();
 
         if (!doc.exists) {
             console.warn(`Lote de receitas com ID ${batchId} não encontrado.`);
-            notFound(); // Aciona a página not-found do Next.js
+            notFound(); 
         }
 
         const data = doc.data() as DocumentData;
 
-        // O Firestore Admin SDK retorna Timestamps. Converte para Date.
+        // Mapeamento e conversão de Timestamp
         const recipeBatch: GeneratedRecipe = {
             id: doc.id,
             userId: data.userId || null, 
             inputData: data.inputData,
             generatedRecipes: data.generatedRecipes,
-            // Converte o Timestamp do Admin SDK para um objeto JavaScript Date
+            // O uso de `data.createdAt.toDate ? data.createdAt.toDate() : data.createdAt`
+            // é bom para garantir a conversão, caso o campo não seja um Timestamp.
             createdAt: data.createdAt.toDate ? data.createdAt.toDate() : data.createdAt, 
         };
 
@@ -47,7 +50,7 @@ export async function getRecipeBatchById(batchId: string): Promise<GeneratedReci
 
     } catch (error) {
         console.error(`Erro ao buscar lote de receitas ${batchId}:`, error);
-        // Em caso de qualquer erro de IO ou acesso, tratamos como não encontrado por segurança
+        // Tratamento de erro robusto.
         notFound(); 
     }
 }

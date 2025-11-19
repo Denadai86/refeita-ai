@@ -41,7 +41,7 @@ if (!getApps().length) {
 }
 
 // Instâncias globais únicas
-export const adminDB = getFirestore();
+export const adminDB: Firestore = getFirestore(); 
 export const adminAuth = getAuth();
 
 // ------------------------------------------------------------
