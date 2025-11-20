@@ -1,7 +1,6 @@
 // src/types/recipe.ts
-
 // ===============================================
-// 1. INPUTS DO FORMULÁRIO
+// 1. INPUTS DO FORMULÁRIO (Simplificado)
 // ===============================================
 
 export type PrepTimeOption =
@@ -10,7 +9,8 @@ export type PrepTimeOption =
   | "Normal (30-60min)"
   | "Qualquer";
 
-export type RecipeFormInput = {
+/** Dados enviados pelo formulário para a Server Action. */
+export type RecipeInput = {
   mainIngredients: string;
   restrictions?: string;
   prepTimePreference: PrepTimeOption;
@@ -19,7 +19,7 @@ export type RecipeFormInput = {
 };
 
 // ===============================================
-// 2. SAÍDA DO LLM (sempre ARRAY)
+// 2. DETALHES DA RECEITA (Saída do LLM)
 // ===============================================
 
 export type IngredientItem = {
@@ -27,6 +27,7 @@ export type IngredientItem = {
   quantity: string;
 };
 
+/** Estrutura detalhada de uma receita gerada. */
 export type RecipeDetail = {
   recipeName: string;
   description: string;
@@ -37,28 +38,39 @@ export type RecipeDetail = {
   tips: string[];
 };
 
-// Tipo de retorno do llm.ts
+/** Tipo de retorno do llm.ts (sempre um array de receitas) */
 export type RecipeResponse = RecipeDetail[];
 
 // ===============================================
-// 3. FIRESTORE — Modelo salvo
+// 3. FIRESTORE — MODELOS DE PERSISTÊNCIA
 // ===============================================
 
-export type GeneratedRecipeModel = {
+/** * Representa um LOTE completo de receitas salvo no Firestore.
+ * Inclui metadados e o ID do documento.
+ */
+export type RecipeBatch = {
+  id: string; // ID do Documento (gerado pelo Firestore)
   userId: string | null;
-  inputData: RecipeFormInput;
+  inputData: RecipeInput;
   generatedRecipes: RecipeDetail[];
-  createdAt: number; // timestamp (ms)
+  createdAt: number; // Timestamp (ms)
 };
 
+/** * Payload usado para CRIAR um novo documento no Firestore.
+ * É o RecipeBatch, mas sem o ID (que é gerado pelo DB).
+ */
+export type RecipeBatchPayload = Omit<RecipeBatch, 'id'>;
+
+
 // ===============================================
-// 4. RETORNO DA SERVER ACTION
+// 4. RETORNO DA SERVER ACTION (Estado)
 // ===============================================
 
+/** Estado de retorno para o hook useFormState. */
 export type RecipeActionState = {
   success: boolean;
   message: string;
-  recipeBatchId?: string;
-  recipes?: RecipeDetail[];
+  recipeBatchId?: string; // ID do lote recém-criado (RecipeBatch)
+  recipes?: RecipeDetail[]; // Receitas geradas para exibição
   errorDetails?: { field: string; message: string }[];
 };

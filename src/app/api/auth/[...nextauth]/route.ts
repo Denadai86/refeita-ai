@@ -2,105 +2,67 @@
 
 import NextAuth from 'next-auth';
 import type { NextAuthOptions } from 'next-auth';
-// Usaremos Credentials Provider para simular ou integrar com tokens de Firebase Auth
-import CredentialsProvider from 'next-auth/providers/credentials';
+import GoogleProvider from 'next-auth/providers/google'; // Provider preferido para baixa fricção
 
-// Usaremos a função getToken() do Firebase Admin para verificar o token JWT.
+// Certifica-se de que a exportação da função 'auth' para Server Actions funciona.
+// A função 'auth' será usada para obter a sessão no lado do servidor.
+// Esta importação é necessária para o 'generateRecipeAction'.
 import { adminAuth } from '@/lib/firebase-admin';
+//import { auth as adminAuth } from '@/lib/firebase-admin'; // Mantido caso você queira usar o Admin SDK em outros locais.
 
-// --- Opções de Autenticação ---
+// Variáveis de ambiente
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
 export const authOptions: NextAuthOptions = {
-  // Configuração da Sessão
-  session: {
-    strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 dias
-  },
-  
-  // Provedores (Aqui usamos Credentials para receber o token do Firebase)
-  providers: [
-    CredentialsProvider({
-      // O nome é apenas para UI do NextAuth (se houver uma página padrão)
-      name: 'Firebase Auth',
-      credentials: {
-        idToken: { label: 'ID Token', type: 'text' },
-      },
-      
-      // Esta é a função que o NextAuth chamará ao tentar fazer login com o token
-      async authorize(credentials, req) {
-        if (credentials?.idToken) {
-          try {
-            // 1. Verificar o token JWT assinado pelo Firebase Admin SDK
-            const decodedToken = await adminAuth.verifyIdToken(credentials.idToken);
-            
-            // 2. Retorna um objeto de usuário que será serializado na sessão JWT
-            return {
-              id: decodedToken.uid,
-              email: decodedToken.email,
-              name: decodedToken.name || 'Usuário Refeita.AI',
-              // Você pode incluir claims personalizados do Firebase aqui:
-              plan: decodedToken.plan || 'FREE', 
-            };
-          } catch (error) {
-            console.error('Erro na verificação do token Firebase:', error);
-            return null; // Falha na autenticação
-          }
-        }
-        return null; // Nenhuma credencial fornecida
-      },
-    }),
-  ],
+    // --- Configuração de Sessão e JWT ---
+    session: {
+        strategy: 'jwt',
+        maxAge: 30 * 24 * 60 * 60, // 30 dias
+    },
+    
+    // --- Provedor Único: Google ---
+    providers: [
+        GoogleProvider({
+            // 🚨 Use o '!' para o TypeScript parar de reclamar, assumindo que você os configurou na Vercel
+            clientId: GOOGLE_CLIENT_ID!,
+            clientSecret: GOOGLE_CLIENT_SECRET!,
+        }),
+    ],
 
-  // Gerenciamento de Callbacks JWT
-  callbacks: {
-    async jwt({ token, user }) {
-      // O usuário (user) só está presente no primeiro login
-      if (user) {
-        token.id = user.id;
-        token.plan = user.plan;
-      }
-      return token;
+    // --- Callbacks de Gerenciamento (Dependem do next-auth.d.ts) ---
+    callbacks: {
+        async jwt({ token, user }) {
+            // O 'user' existe no primeiro login (via Google)
+            if (user) {
+                token.id = user.id;
+                // Inicializa o plano como 'FREE' no JWT.
+                // O tipo 'User' agora inclui 'plan' (graças ao next-auth.d.ts).
+                token.plan = (user as any).plan || 'FREE'; 
+            }
+            return token;
+        },
+        async session({ session, token }) {
+            // Adiciona campos customizados do JWT na sessão
+            if (token.id) {
+                session.user.id = token.id as string;
+            }
+            if (token.plan) {
+                session.user.plan = token.plan as 'FREE' | 'PRO' | 'LIFETIME';
+            }
+            return session;
+        },
     },
-    async session({ session, token }) {
-      // Adiciona campos personalizados do token JWT na sessão visível para o cliente
-      if (token) {
-        session.user.id = token.id;
-        session.user.plan = token.plan as string;
-      }
-      return session;
-    },
-  },
-  
-  secret: process.env.NEXTAUTH_SECRET,
-  // pages: { /* opcional: se quiser páginas de login/erro customizadas */ },
+
+    // --- Configuração Essencial de Segurança ---
+    secret: process.env.NEXTAUTH_SECRET, 
+    
+    // 🛑 CORREÇÃO: Removido o bloco 'logger' que estava causando o erro de tipagem no build
+    // logger: ... (REMOVIDO)
 };
 
 // Exporta o handler da API para os métodos GET e POST
 const handler = NextAuth(authOptions);
 
-export { handler as GET, handler as POST };
-
-// --- Extensão de Tipos (OPCIONAL, mas altamente recomendado) ---
-// Você pode criar um arquivo separado (types/next-auth.d.ts) para estender a tipagem
-/*
-declare module 'next-auth' {
-  interface Session {
-    user: {
-      id: string;
-      email: string;
-      name: string;
-      plan: string; // Exemplo de campo customizado
-    };
-  }
-  interface User {
-    id: string;
-    plan: string;
-  }
-}
-
-declare module 'next-auth/jwt' {
-  interface JWT {
-    id: string;
-    plan: string;
-  }
-}
-*/
+// Exporta 'auth' (renomeado) para uso em Server Actions (como 'generateRecipeAction')
+export { handler as GET, handler as POST, authOptions as auth };
