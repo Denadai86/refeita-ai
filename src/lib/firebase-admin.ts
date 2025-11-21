@@ -95,7 +95,7 @@ function initializeFirebaseAdmin(): App {
 // 2. Funções de Getter (Lazy Initialization)
 // ------------------------------------------------------------
 
-export function getAdminDB(): Firestore {
+export function getAdminDb(): Firestore {
   if (!adminDBInstance) {
     const app = initializeFirebaseAdmin();
     adminDBInstance = getFirestore(app);
@@ -116,7 +116,7 @@ export function getAdminAuth(): Auth {
 // ------------------------------------------------------------
 
 // A lógica de checkAndIncrementUsage e saveGeneratedRecipe permanece a mesma
-// pois já está usando corretamente o getAdminDB().
+// pois já está usando corretamente o ().
 const MAX_FREE_RECIPES_PER_MONTH = 5;
 
 export async function checkAndIncrementUsage(userId: string): Promise<boolean> {

@@ -1,4 +1,4 @@
-// src/utils/firebase-admin.ts
+// src/utils/firebase-admin.ts (ou src/lib/firebase-admin.ts)
 import { initializeApp, getApps, cert, App, ServiceAccount } from 'firebase-admin/app';
 import { getFirestore, Firestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth, Auth } from 'firebase-admin/auth';
@@ -21,15 +21,14 @@ let cachedAuth: Auth | undefined;
 /**
  * Processa a chave privada (Private Key) da variável de ambiente.
  * Substitui sequências de escape comuns (\n) por quebras de linha reais.
- * Isso resolve o erro 'Invalid PEM formatted message'.
- * * @returns A chave privada formatada ou undefined.
+ * @returns A chave privada formatada ou undefined.
  */
 function getFormattedPrivateKey(): string | undefined {
   const key = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
   if (!key) return undefined;
 
-  // Substitui a sequência literal '\n' por quebras de linha reais
-  // Isso é CRUCIAL para chaves PEM em arquivos .env
+  // Substitui a sequência literal '\\n' por quebras de linha reais '\n'
+  // CRUCIAL para o formato de chave do .env.local
   return key.trim().replace(/\\n/g, '\n').replace(/\\\\n/g, '\n');
 }
 
@@ -39,12 +38,12 @@ function getFormattedPrivateKey(): string | undefined {
 
 /**
  * Inicializa o Firebase Admin SDK ou retorna a instância existente.
- * 🚨 Retorna a instância do App ou undefined no caso de falha.
+ * Retorna a instância do App ou undefined no caso de falha.
  */
 function initializeFirebaseAdmin(): App | undefined {
   if (cachedApp) return cachedApp;
 
-  // 1. Checa se o App já foi inicializado (importante para hot-reloading)
+  // Checa se o App já foi inicializado
   const existingApp = getApps().find(app => app.name === '[DEFAULT]');
   if (existingApp) {
     cachedApp = existingApp;
@@ -59,7 +58,7 @@ function initializeFirebaseAdmin(): App | undefined {
     privateKey,
   };
 
-  // 2. Checagem crítica de variáveis de ambiente
+  // Checagem crítica de variáveis de ambiente
   if (
     !serviceAccount.projectId ||
     !serviceAccount.clientEmail ||
@@ -67,21 +66,17 @@ function initializeFirebaseAdmin(): App | undefined {
   ) {
     console.error('--- ERRO CRÍTICO: CHAVES DO FIREBASE ADMIN INCOMPLETAS ---');
     console.error('Verifique FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, e FIREBASE_ADMIN_PRIVATE_KEY.');
-    // Retorna undefined (sem lançar exceção) para que o código chamador possa lidar com a falha
-    return undefined; 
+    return undefined; // Falha segura
   }
 
-  // 3. Inicialização Limpa
+  // Inicialização Limpa com tratamento de erro
   try {
-    // Inicializa o app com as credenciais. Se o formato da chave estiver incorreto, lança erro aqui.
     cachedApp = initializeApp({
       credential: cert(serviceAccount),
     });
     console.log('Firebase Admin inicializado com sucesso.');
     return cachedApp;
   } catch (error) {
-    // 🚨 Captura erro de inicialização (ex: formato de chave) e retorna undefined.
-    // Esta estrutura de try/catch é mais amigável ao Turbopack.
     console.error('Erro fatal ao chamar initializeApp:', error);
     return undefined;
   }
@@ -92,13 +87,13 @@ function initializeFirebaseAdmin(): App | undefined {
 // ------------------------------------------------------------
 
 /**
- * Retorna a instância única do Firestore Admin.
+ * Retorna a instância única do Firestore Admin. (getAdminDb - minúsculo)
  * @returns A instância do Firestore ou undefined se a inicialização falhar.
  */
-export function getAdminDB(): Firestore | undefined {
+export function getAdminDb(): Firestore | undefined {
   if (!cachedDb) {
     const app = initializeFirebaseAdmin();
-    if (!app) return undefined; // Falha segura
+    if (!app) return undefined; 
     cachedDb = getFirestore(app);
   }
   return cachedDb;
@@ -111,28 +106,13 @@ export function getAdminDB(): Firestore | undefined {
 export function getAdminAuth(): Auth | undefined {
   if (!cachedAuth) {
     const app = initializeFirebaseAdmin();
-    if (!app) return undefined; // Falha segura
+    if (!app) return undefined; 
     cachedAuth = getAuth(app);
   }
   return cachedAuth;
 }
 
 // ------------------------------------------------------------
-// 4. Exportação de FieldValue (Para uso em outros arquivos)
+// 4. Exportação de FieldValue
 // ------------------------------------------------------------
-// Exporta FieldValue diretamente para consistência.
 export { FieldValue };
-
-
-// ------------------------------------------------------------
-// 5. Funções Utilitárias (Se estavam no arquivo original, deixe-as aqui)
-//    Se estavam em outros arquivos (recipe.server.ts), elas devem
-//    usar getAdminDB() para obter a instância.
-// ------------------------------------------------------------
-// Exemplo de como era:
-// export async function saveGeneratedRecipe(data: any): Promise<string> {
-//   const adminDB = getAdminDB(); 
-//   if (!adminDB) throw new Error("DB not available");
-//   const doc = await adminDB.collection('generated_recipes').add({ ... });
-//   return doc.id;
-// }
