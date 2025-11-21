@@ -4,7 +4,7 @@
 import { z, ZodError } from "zod";
 import { FieldValue } from "firebase-admin/firestore";
 import { generateRecipe } from "@/lib/llm";
-import { adminDB } from "@/lib/firebase-admin";
+import { getAdminDB } from "@/lib/firebase-admin";
 import { RecipeActionState } from "@/types/recipe";
 
 // ---- VALIDATION SCHEMA ----
@@ -50,13 +50,12 @@ export async function generateRecipeAction(
       numberOfRecipes: parsed.numberOfRecipes,
     });
 
-    const batchRef = await adminDB.collection("recipeBatches").add({
-      userId: null, // depois coloca o user autenticado
-      inputData: parsed,
-      generatedRecipes,
-      createdAt: FieldValue.serverTimestamp(),
-    });
-
+   const batchRef = await getAdminDB().collection("recipeBatches").add({
+    userId: null, // depois coloca o user autenticado
+    inputData: parsed,
+    generatedRecipes,
+    createdAt: FieldValue.serverTimestamp(),
+});
     return {
       success: true,
       message: "Receitas geradas com sucesso!",

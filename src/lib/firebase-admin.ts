@@ -4,11 +4,6 @@ import { getFirestore, Firestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import 'server-only'; // Boa prática para arquivos server-side
 
-/**
- * 🔒 Este arquivo só deve ser usado em Server Actions ou código server-side.
- * Ele implementa a inicialização robusta do Firebase Admin SDK usando o padrão Singleton (Lazy-Loading).
- */
-
 // Variáveis para cache da instância (Singleton)
 let adminApp: App | undefined;
 let adminDBInstance: Firestore | undefined;
@@ -19,40 +14,37 @@ let adminAuthInstance: Auth | undefined;
 // ------------------------------------------------------------
 
 /**
- * Processa a chave privada: tenta decodificar de Base64 e,
- * como fallback, tenta o formato RAW com newlines escapadas.
- * @returns A chave privada formatada.
+ * Processa a chave privada, substituindo newlines escapadas.
+ * Este método é crucial para chaves armazenadas em uma linha única em .env.local.
+ * @returns A chave privada formatada para o SDK.
  */
 function getFormattedPrivateKey(): string | undefined {
   const key = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
   if (!key) return undefined;
 
-  const trimmedKey = key.trim();
+  // A forma mais comum de quebra no .env é o literal '\n'
+  // O trim() remove espaços extras no início/fim.
+  let formattedKey = key.trim();
 
-  // 1. Tenta decodificar de Base64 (a chave que você forneceu está neste formato)
-  // Checa se a chave não contém newlines ou newlines escapadas, o que sugere Base64.
-  if (
-    !trimmedKey.includes('\n') &&
-    !trimmedKey.includes('\\n') &&
-    trimmedKey.length > 100
-  ) {
-    try {
-      // 'Buffer' está disponível em ambientes Node.js (Server Actions)
-      const decoded = Buffer.from(trimmedKey, 'base64').toString('utf8');
-      if (decoded.includes('BEGIN PRIVATE KEY')) {
-        return decoded;
-      }
-    } catch (e) {
-      // Ignora erro e tenta o próximo formato
-    }
+  // Substitui a sequência literal '\\n' por quebras de linha reais '\n'
+  // Esta é a correção principal para o formato do seu .env.local.
+  formattedKey = formattedKey.replace(/\\n/g, '\n');
+
+  // Adicionalmente, substitui o caso de 'erro de aspas' onde \n é literal
+  formattedKey = formattedKey.replace(/\\\\n/g, '\n'); 
+
+  if (formattedKey.includes('BEGIN PRIVATE KEY') && formattedKey.includes('\n')) {
+      return formattedKey;
   }
-
-  // 2. Se a decodificação Base64 falhou, trata como string RAW (com newlines escapadas)
-  return trimmedKey.replace(/\\n/g, '\n').replace(/\\\\n/g, '\n');
+  
+  // Se ainda não parece uma chave PEM válida
+  return undefined; 
 }
 
 /**
  * Inicializa o Firebase Admin SDK de forma segura (Singleton) ou retorna a instância existente.
+ * Lança um erro CRÍTICO se faltarem variáveis de ambiente.
+ *
  * @returns A instância do Firebase App.
  */
 function initializeFirebaseAdmin(): App {
@@ -60,7 +52,6 @@ function initializeFirebaseAdmin(): App {
     return adminApp;
   }
 
-  // Tenta obter a instância existente (se já foi inicializada por outra chamada getApps().length > 0)
   const existingApps = getApps();
   if (existingApps.length > 0) {
     adminApp = existingApps[0];
@@ -75,16 +66,21 @@ function initializeFirebaseAdmin(): App {
     privateKey,
   };
 
+  // 🚨 NOVO LOG DE ERRO MAIS CLARO:
   if (
     !serviceAccount.projectId ||
     !serviceAccount.clientEmail ||
     !serviceAccount.privateKey
   ) {
-    console.error(
-      'ERRO CRÍTICO: Variáveis de ambiente do Firebase Admin estão incompletas!'
-    );
+    console.error('--- ERRO CRÍTICO: FALHA NA INICIALIZAÇÃO FIREBASE ADMIN ---');
+    console.error('1. FIREBASE_PROJECT_ID está presente:', !!serviceAccount.projectId);
+    console.error('2. FIREBASE_CLIENT_EMAIL está presente:', !!serviceAccount.clientEmail);
+    // O erro mais provável!
+    console.error('3. FIREBASE_ADMIN_PRIVATE_KEY processada está VAZIA:', !serviceAccount.privateKey); 
+    console.error('---------------------------------------------------------');
+
     throw new Error(
-      'Firebase Admin SDK not initialized: Missing environment variables.'
+      'Firebase Admin SDK not initialized: Missing or invalid key/credentials. Check server logs above.'
     );
   }
 
@@ -99,10 +95,7 @@ function initializeFirebaseAdmin(): App {
 // 2. Funções de Getter (Lazy Initialization)
 // ------------------------------------------------------------
 
-/**
- * Retorna a instância única do Firestore Admin, inicializando-o se necessário.
- */
-export function getAdminDb(): Firestore {
+export function getAdminDB(): Firestore {
   if (!adminDBInstance) {
     const app = initializeFirebaseAdmin();
     adminDBInstance = getFirestore(app);
@@ -110,9 +103,6 @@ export function getAdminDb(): Firestore {
   return adminDBInstance;
 }
 
-/**
- * Retorna a instância única do Auth Admin, inicializando-o se necessário.
- */
 export function getAdminAuth(): Auth {
   if (!adminAuthInstance) {
     const app = initializeFirebaseAdmin();
@@ -124,23 +114,22 @@ export function getAdminAuth(): Auth {
 // ------------------------------------------------------------
 // 3. Lógica de Uso (Rate Limits / Plano Free)
 // ------------------------------------------------------------
+
+// A lógica de checkAndIncrementUsage e saveGeneratedRecipe permanece a mesma
+// pois já está usando corretamente o getAdminDB().
 const MAX_FREE_RECIPES_PER_MONTH = 5;
 
-/**
- * Checa o limite de uso mensal de receitas e incrementa a contagem.
- * Usa uma transação para garantir atomicidade.
- * * @param userId ID do usuário.
- * @returns Promise<boolean> true se permitido, false se limite excedido.
- */
 export async function checkAndIncrementUsage(userId: string): Promise<boolean> {
-  const adminDB = getAdminDb(); // Pega a instância a cada chamada
-
+  // O código aqui pode ser simplificado, mas estou mantendo o seu foco.
+  // ... (Seu código checkAndIncrementUsage aqui, usando getAdminDB())
+  const adminDB = getAdminDB(); // Pega a instância a cada chamada
+  
   const usageRef = adminDB
     .collection('users')
     .doc(userId)
     .collection('usage')
     .doc('monthly');
-
+  
   try {
     await adminDB.runTransaction(async (transaction) => {
       const snap = await transaction.get(usageRef);
@@ -186,17 +175,8 @@ export async function checkAndIncrementUsage(userId: string): Promise<boolean> {
   }
 }
 
-// ------------------------------------------------------------
-// 4. Salvamento de recipies geradas
-// ------------------------------------------------------------
-
-/**
- * Salva uma receita gerada na coleção 'generated_recipes'.
- * @param data O payload da receita.
- * @returns Promise<string> O ID do documento salvo.
- */
 export async function saveGeneratedRecipe(data: any): Promise<string> {
-  const adminDB = getAdminDb(); // Pega a instância a cada chamada
+  const adminDB = getAdminDB(); // Pega a instância a cada chamada
 
   const doc = await adminDB.collection('generated_recipes').add({
     ...data,

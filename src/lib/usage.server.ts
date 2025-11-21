@@ -2,7 +2,7 @@
 'use server';
 
 import admin from 'firebase-admin'; // Para usar FieldValue.serverTimestamp()
-import { getAdminDb } from '@/utils/firebase-admin';
+import { getAdminDB } from '@/utils/firebase-admin';
 
 // Constante para o MVP de usuários FREE
 const MAX_FREE_RECIPES = 5;
@@ -13,7 +13,7 @@ const MAX_FREE_RECIPES = 5;
  * @returns true se permitido, false se excedeu o limite.
  */
 export async function checkAndIncrementUsage(userId: string): Promise<boolean> {
-    const db = await getAdminDb(); // Pega a instância do DB
+    const db = await getAdminDB(); // Pega a instância do DB
     if (!db) {
         console.error("DB Admin não inicializado para checagem de uso.");
         return true; // Falha segura temporária

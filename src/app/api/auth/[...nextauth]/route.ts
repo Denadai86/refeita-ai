@@ -7,7 +7,7 @@ import GoogleProvider from 'next-auth/providers/google'; // Provider preferido p
 // Certifica-se de que a exportação da função 'auth' para Server Actions funciona.
 // A função 'auth' será usada para obter a sessão no lado do servidor.
 // Esta importação é necessária para o 'generateRecipeAction'.
-import { adminAuth } from '@/lib/firebase-admin';
+import { getAdminAuth } from '@/lib/firebase-admin';
 //import { auth as adminAuth } from '@/lib/firebase-admin'; // Mantido caso você queira usar o Admin SDK em outros locais.
 
 // Variáveis de ambiente

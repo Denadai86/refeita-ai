@@ -10,7 +10,7 @@ type GenResponse = any;
 const MODEL_FALLBACK = [
 
   "gemini-2.5-pro",        // Maior raciocínio
-  "gemini-1.5-flash",      // Rápido e eficiente (substituto do fictício 2.5)
+  
 ];
 
 export async function generateRecipe(req: {

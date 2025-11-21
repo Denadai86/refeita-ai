@@ -29,6 +29,7 @@ export type IngredientItem = {
 
 /** Estrutura detalhada de uma receita gerada. */
 export type RecipeDetail = {
+  name: string;
   recipeName: string;
   description: string;
   prepTime: number; // minutos
@@ -36,6 +37,8 @@ export type RecipeDetail = {
   ingredients: IngredientItem[];
   instructions: string[];
   tips: string[];
+  difficulty: 'Fácil' | 'Médio' | 'Difícil';
+  calories: number;
 };
 
 /** Tipo de retorno do llm.ts (sempre um array de receitas) */

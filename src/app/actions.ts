@@ -5,7 +5,7 @@
 import { getServerSession } from 'next-auth'
 import { auth as authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { generateRecipe } from '@/lib/llm'; // Função de chamada da IA
-import { adminDB } from '@/lib/firebase-admin'; // Firestore Admin Instance
+import { getAdminDB } from '@/lib/firebase-admin'; // Firestore Admin Instance
 // Importa o tipo correto 'RecipeInput' e o payload para salvar no DB
 import { RecipeActionState, RecipeInput, RecipeBatchPayload, RecipeResponse } from '@/types/recipe'; 
 import { checkAndIncrementUsage } from '@/lib/usage.server';
@@ -94,9 +94,10 @@ export async function generateRecipeAction(
       createdAt: Date.now(),
     };
     
+    const adminDB = getAdminDB();
     // 🚨 CORREÇÃO: Usa 'adminDB.collection(...).add()' para salvar
     // O ID é gerado pelo Firestore e retornado no docRef.
-    const docRef = await adminDB.collection('recipeBatches').add(payload); 
+    const docRef = await adminDB.collection('recipeBatches').add(payload);
     
     // -------------------------------------------------
     // 5. RETORNAR PARA O CLIENTE
