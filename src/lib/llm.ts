@@ -8,7 +8,7 @@ type GenResponse = any;
 
 // Lista de modelos oficiais (ajustado para versões existentes e estáveis)
 const MODEL_FALLBACK = [
-
+  "gemini-2.5-flash",      // Versão balanceada
   "gemini-2.5-pro",        // Maior raciocínio
   
 ];
