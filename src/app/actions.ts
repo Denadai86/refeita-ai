@@ -1,120 +1,100 @@
 // src/app/actions.ts
-'use server';
+'use server'
 
-//import { auth } from '@/app/api/auth/[...nextauth]/route'; // Importa a função auth() (local)
 import { getServerSession } from 'next-auth'
-import { auth as authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { generateRecipe } from '@/lib/llm'; // Função de chamada da IA
-import { getAdminDb } from '@/lib/firebase-admin'; // Firestore Admin Instance
-// Importa o tipo correto 'RecipeInput' e o payload para salvar no DB
-import { RecipeActionState, RecipeInput, RecipeBatchPayload, RecipeResponse } from '@/types/recipe'; 
-import { checkAndIncrementUsage } from '@/lib/usage.server';
+import { auth as authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { generateRecipe } from '@/lib/llm'
+import { RecipeActionState, RecipeInput, RecipeBatchPayload, RecipeResponse } from '@/types/recipe'
+import { z, ZodError } from 'zod'
 
-// Constante para o MVP de usuários FREE
-const MAX_FREE_RECIPES = 5;
+// Schema de validação com Zod
+const RecipeInputSchema = z.object({
+  mainIngredients: z.string().min(3, 'Informe ao menos 3 caracteres para os ingredientes.'),
+  restrictions: z.string().default('Nenhuma'),
+  prepTimePreference: z.string(),
+  cuisinePreference: z.string().default('Qualquer'),
+  numberOfRecipes: z.number().int().min(1).max(5).default(1),
+})
 
 /**
- * Server Action principal para receber o formulário, checar limites,
- * gerar a receita via LLM e salvar no Firestore.
+ * Server Action principal – versão MVP SEM limite de uso e SEM Firebase Admin
+ * Tudo que estava quebrando foi comentado/desativado temporariamente.
  */
 export async function generateRecipeAction(
   prevState: RecipeActionState,
   formData: FormData
 ): Promise<RecipeActionState> {
+  const session = await getServerSession(authOptions as any)
 
-  const session = await getServerSession(authOptions as any);
-  
-  // 🚨 CORREÇÃO ESSENCIAL: Declaração de userId e userPlan no escopo da função
-  const userId = (session as any)?.user?.id || null; // Null se não estiver logado
-  const userPlan = (session as any)?.user?.plan || 'FREE';
+  // Usuário logado ou anônimo (só pra identificar)
+  const userId = (session as any)?.user?.id || `anon-${Date.now()}`
+  const userPlan = (session as any)?.user?.plan || 'FREE'
 
   try {
-    // -------------------------------------------------
-    // 1. LER E VALIDAR INPUTS DO FORMULÁRIO
-    // -------------------------------------------------
-    // 🚨 ATENÇÃO: Verifique a nomenclatura exata dos campos 'mainIngredients' vs 'ingredients'
-    const input: RecipeInput = {
-      mainIngredients: formData.get('mainIngredients')?.toString() || '',
-      restrictions: formData.get('restrictions')?.toString() || '',
-      prepTimePreference: formData.get('prepTimePreference')?.toString() as any, // Cuidado com 'as any'
-      cuisinePreference: formData.get('cuisinePreference')?.toString() || '',
-      numberOfRecipes: 1, 
-    };
-
-    if (input.mainIngredients.split(',').filter(s => s.trim().length > 0).length < 2) {
-      return { success: false, message: 'Inclua ao menos 2 ingredientes válidos.' };
+    // 1. VALIDAÇÃO DOS DADOS DO FORMULÁRIO
+    let input: z.infer<typeof RecipeInputSchema>
+    try {
+      input = RecipeInputSchema.parse({
+        mainIngredients: formData.get('mainIngredients'),
+        restrictions: formData.get('restrictions') || 'Nenhuma',
+        prepTimePreference: formData.get('prepTimePreference'),
+        cuisinePreference: formData.get('cuisinePreference') || 'Qualquer',
+        numberOfRecipes: 1, // MVP: sempre gera 1 receita por enquanto
+      })
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return { success: false, message: err.issues[0].message }
+      }
+      return { success: false, message: 'Erro de validação do formulário.' }
     }
 
-    // -------------------------------------------------
-    // 2. RATE LIMIT (MVP de Monetização)
-    // -------------------------------------------------
-    if (userPlan === 'FREE' && userId) {
-        const allowed = await checkAndIncrementUsage(userId);
-        if (!allowed) {
-            return { 
-                success: false, 
-                message: `Limite de ${MAX_FREE_RECIPES} receitas gratuitas atingido. Faça upgrade para continuar!` 
-            };
-        }
-    }
-    
-    // -------------------------------------------------
-    // 3. CONVERTER O TEMPO E CHAMAR O LLM
-    // -------------------------------------------------
+    // 2. RATE LIMIT DESATIVADO TEMPORARIAMENTE (era o que estava quebrando tudo)
+    // if (userPlan === 'FREE') {
+    //   const allowed = await checkAndIncrementUsage(userId)
+    //   if (!allowed) {
+    //     return { success: false, message: `Limite de receitas gratuitas atingido.` }
+    //   }
+    // }
+
+    // 3. MAPEAR TEMPO E CHAMAR A IA (Gemini via /api/gemini)
     const timeMap: Record<string, number> = {
       'SuperRápido(até 15min)': 15,
       'Rápido (até 30min)': 30,
       'Normal (30-60min)': 60,
       'Qualquer': 120,
-    };
+    }
 
-    const maxTime = timeMap[input.prepTimePreference] || 60; // Padrão mais seguro 60
+    const maxTime = timeMap[input.prepTimePreference] || 60
 
-    // 🚨 ATENÇÃO: A função generateRecipe deve aceitar 'ingredients' e 'maxTime'
     const recipes: RecipeResponse = await generateRecipe({
       ingredients: input.mainIngredients,
       restrictions: input.restrictions || '',
       maxTime,
-    });
+      numberOfRecipes: input.numberOfRecipes,
+    })
 
     if (!recipes || recipes.length === 0) {
-      // Se o rate limit passou, mas a IA falhou, DEVERÍAMOS desfazer o incremento de uso,
-      // mas por simplicidade do MVP, apenas lançamos o erro.
-      throw new Error('A IA não conseguiu gerar receitas. Tente novamente.');
+      throw new Error('A IA não conseguiu gerar receitas. Tente novamente.')
     }
 
-    // -------------------------------------------------
-    // 4. SALVAR NO FIRESTORE
-    // -------------------------------------------------
-    // 🚨 CORREÇÃO: Variável 'generatedRecipe' não estava definida. Usamos 'recipes[0]'
-    const payload: RecipeBatchPayload = {
-      userId: userId, // Agora 'userId' está no escopo e pode ser null
-      inputData: input,
-      generatedRecipes: recipes, // Salvamos o array completo
-      createdAt: Date.now(),
-    };
-    
-    const adminDB = getAdminDb();
-    // 🚨 CORREÇÃO: Usa 'adminDB.collection(...).add()' para salvar
-    // O ID é gerado pelo Firestore e retornado no docRef.
-    const docRef = await adminDB.collection('recipeBatches').add(payload);
-    
-    // -------------------------------------------------
-    // 5. RETORNAR PARA O CLIENTE
-    // -------------------------------------------------
+    // 4. SALVAR NO FIRESTORE COM ADMIN SDK TAMBÉM DESATIVADO (não quebra mais)
+    // const adminDB = getAdminDb()
+    // if (!adminDB) throw new Error('Banco de dados indisponível.')
+    // const payload: RecipeBatchPayload = { ... }
+    // await adminDB.collection('recipeBatches').add(payload)
+
+    // 5. RETORNO DE SUCESSO (sem salvar no banco por enquanto)
     return {
       success: true,
-      message: 'Receitas geradas e salvas com sucesso!',
-      recipeBatchId: docRef.id, // Retorna o ID para busca posterior
+      message: 'Receita gerada com sucesso!',
       recipes,
-    };
-
+      // recipeBatchId: docRef?.id,
+    }
   } catch (err) {
-    console.error('Erro na Server Action:', err);
-
+    console.error('Erro na Server Action:', err)
     return {
       success: false,
-      message: (err instanceof Error) ? err.message : 'Erro interno ao gerar receita. Verifique logs.',
-    };
+      message: err instanceof Error ? err.message : 'Erro interno. Tente novamente.',
+    }
   }
 }

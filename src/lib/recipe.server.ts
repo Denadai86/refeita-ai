@@ -1,7 +1,7 @@
 "use server";
 
 import 'server-only';
-import { getAdminDB } from '@/lib/firebase-admin';
+import { getAdminDb } from '@/lib/firebase-admin';
 import { RecipeBatch } from '@/types/recipe';
 import type { DocumentData } from 'firebase-admin/firestore';
 import { notFound } from 'next/navigation';
@@ -16,7 +16,7 @@ export async function getRecipeBatchById(batchId: string): Promise<RecipeBatch> 
     throw new Error('batchId is required');
   }
 
-  const adminDB = await getAdminDB();
+  const adminDB = await getAdminDb();
   if (!adminDB) {
     notFound();
     throw new Error('Admin DB not initialized');

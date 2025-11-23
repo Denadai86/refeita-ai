@@ -121,8 +121,8 @@ const MAX_FREE_RECIPES_PER_MONTH = 5;
 
 export async function checkAndIncrementUsage(userId: string): Promise<boolean> {
   // O código aqui pode ser simplificado, mas estou mantendo o seu foco.
-  // ... (Seu código checkAndIncrementUsage aqui, usando getAdminDB())
-  const adminDB = getAdminDB(); // Pega a instância a cada chamada
+  // ... (Seu código checkAndIncrementUsage aqui, usando getAdminDb())
+  const adminDB = getAdminDb(); // Pega a instância a cada chamada
   
   const usageRef = adminDB
     .collection('users')
@@ -176,7 +176,7 @@ export async function checkAndIncrementUsage(userId: string): Promise<boolean> {
 }
 
 export async function saveGeneratedRecipe(data: any): Promise<string> {
-  const adminDB = getAdminDB(); // Pega a instância a cada chamada
+  const adminDB = getAdminDb(); // Pega a instância a cada chamada
 
   const doc = await adminDB.collection('generated_recipes').add({
     ...data,

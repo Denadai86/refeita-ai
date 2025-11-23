@@ -25,8 +25,8 @@ export const authOptions: NextAuthOptions = {
     providers: [
         GoogleProvider({
             // 🚨 Use o '!' para o TypeScript parar de reclamar, assumindo que você os configurou na Vercel
-            clientId: GOOGLE_CLIENT_ID!,
-            clientSecret: GOOGLE_CLIENT_SECRET!,
+            clientId: GOOGLE_CLIENT_ID as string,
+            clientSecret: GOOGLE_CLIENT_SECRET as string,
         }),
     ],
 
