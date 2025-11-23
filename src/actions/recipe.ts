@@ -50,16 +50,16 @@ export async function generateRecipeAction(
       numberOfRecipes: parsed.numberOfRecipes,
     });
 
-   const batchRef = await ().collection("recipeBatches").add({
-    userId: null, // depois coloca o user autenticado
-    inputData: parsed,
-    generatedRecipes,
-    createdAt: FieldValue.serverTimestamp(),
-});
+//   const batchRef = await ().collection("recipeBatches").add({
+//    userId: null, // depois coloca o user autenticado
+//    inputData: parsed,
+//   generatedRecipes,
+//    createdAt: FieldValue.serverTimestamp(),
+//});
     return {
       success: true,
       message: "Receitas geradas com sucesso!",
-      recipeBatchId: batchRef.id,
+//      recipeBatchId: batchRef.id,
       recipes: generatedRecipes,
     };
   } catch (error) {

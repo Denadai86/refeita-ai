@@ -1,9 +1,18 @@
-// app/(pages)/chat/page.tsx
+// src/app/(pages)/chat/page.tsx
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import { db, auth } from '@/firebase/config'
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore'
+import {
+  collection,
+  addDoc,
+  query,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+  doc,
+  updateDoc,
+} from 'firebase/firestore'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { Send, LogOut, ChefHat } from 'lucide-react'
 
@@ -58,19 +67,19 @@ export default function ChatPage() {
     setInput('')
     setLoading(true)
 
-    // Salva mensagem do usuário no Firestore
+    // 1. Salva mensagem do usuário
     await addDoc(collection(db, 'users', user.uid, 'chats'), {
       role: 'user',
       content: userMessage,
       createdAt: serverTimestamp(),
     })
 
-    // Chama nossa API segura com streaming
+    // 2. Chama a API Gemini (agora pede 2 receitas explicitamente)
     const response = await fetch('/api/gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: `Me cria uma receita DELICIOSA e brasileira usando o máximo possível desses ingredientes que eu tenho agora: ${userMessage}. Se faltar algo, sugere substituição barata. Quero nome criativo, tempo, ingredientes com ✅ e passo a passo numerado!`,
+        message: `Me cria DUAS receitas completas, deliciosas e brasileiras usando o máximo possível desses ingredientes que tenho agora: ${userMessage}. Quero nome criativo, tempo, ingredientes com ✅ e passo a passo numerado!`,
         history: messages,
       }),
     })
@@ -80,13 +89,14 @@ export default function ChatPage() {
       return
     }
 
-    // Cria mensagem da IA vazia primeiro
+    // 3. Cria mensagem vazia da IA no Firestore
     const aiMessageRef = await addDoc(collection(db, 'users', user.uid, 'chats'), {
       role: 'model',
       content: '',
       createdAt: serverTimestamp(),
     })
 
+    // 4. Streaming + atualização em tempo real
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let aiContent = ''
@@ -98,21 +108,17 @@ export default function ChatPage() {
       const chunk = decoder.decode(value)
       aiContent += chunk
 
-      // Atualiza no Firestore em tempo real
-      await addDoc(collection(db, 'users', user.uid, 'chats'), {
-        ...messages[messages.length - 1],
-        role: 'model',
+      // Atualiza Firestore (agora com updateDoc, que aceita o objeto)
+      await updateDoc(doc(db, 'users', user.uid, 'chats', aiMessageRef.id), {
         content: aiContent,
-        createdAt: serverTimestamp(),
-      }, { merge: true })
+      })
 
-      // Atualiza estado local pra ver o streaming
-      setMessages(prev => {
-        const newMsgs = [...prev]
-        if (newMsgs[newMsgs.length - 1]?.role === 'model') {
-          newMsgs[newMsgs.length - 1].content = aiContent
-        }
-        return newMsgs
+      // Atualiza estado local (streaming letra por letra)
+      setMessages((prev) => {
+        const updated = [...prev]
+        const last = updated[updated.length - 1]
+        if (last?.role === 'model') last.content = aiContent
+        return updated
       })
     }
 
@@ -151,17 +157,19 @@ export default function ChatPage() {
         {messages.length === 0 && (
           <div className="text-center mt-20 text-gray-600">
             <ChefHat size={80} className="mx-auto mb-4 text-green-500" />
-            <p className="text-xl">Oi! Me conta o que tem na sua geladeira que eu monto uma receita incrível pra você!</p>
+            <p className="text-xl">
+              Oi! Me conta o que tem na sua geladeira que eu monto duas receitas incríveis pra você!
+            </p>
           </div>
         )}
 
         {messages.map((msg, i) => (
           <div
-            key={i}
+            key={msg.id || i}
             className={`mb-6 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-2xl p-4 rounded-2xl shadow-md ${
+              className={`max-w-2xl p-6 rounded-2xl shadow-md ${
                 msg.role === 'user'
                   ? 'bg-green-600 text-white'
                   : 'bg-white border border-gray-200'
@@ -169,39 +177,39 @@ export default function ChatPage() {
             >
               {msg.role === 'model' ? (
                 <div className="prose prose-lg max-w-none space-y-10">
-                    {msg.content
-                        .split(/###RECEITA \d###/)
-                        .filter(Boolean)
-                        .map((recipe, i) => (
-                        <div
-                            key={i}
-                            className="bg-gradient-to-br from-orange-50 to-yellow-50 p-8 rounded-3xl border-4 border-orange-300 shadow-2xl transform hover:scale-[1.02] transition-all"
-                        >
-                            <div className="text-3xl font-black text-orange-800 mb-4 flex items-center gap-3">
-                            Receita {i + 1} – O CHEF MANDOU!
-                            </div>
-                            <div
-                            className="text-gray-800 leading-relaxed"
-                            dangerouslySetInnerHTML={{
-                                __html: recipe
-                                .trim()
-                                .replace(/\n/g, '<br>')
-                                .replace(/✅/g, '<span class="text-green-600 font-bold">✅</span>')
-                                .replace(/➡️/g, '<span class="text-blue-600">➡️</span>'),
-                            }}
-                            />
+                  {msg.content
+                    .split(/###RECEITA [1-2]###/)
+                    .filter(Boolean)
+                    .map((recipe, i) => (
+                      <div
+                        key={i}
+                        className="bg-gradient-to-br from-orange-50 to-yellow-50 p-8 rounded-3xl border-4 border-orange-300 shadow-2xl transform hover:scale-[1.02] transition-all"
+                      >
+                        <div className="text-3xl font-black text-orange-800 mb-4 flex items-center gap-3">
+                          Receita {i + 1} – O CHEF MANDOU!
                         </div>
-                        ))}
+                        <div
+                          className="text-gray-800 leading-relaxed"
+                          dangerouslySetInnerHTML={{
+                            __html: recipe
+                              .trim()
+                              .replace(/\n/g, '<br>')
+                              .replace(/✅/g, '<span class="text-green-600 font-bold">✅</span>')
+                              .replace(/➡️/g, '<span class="text-blue-600">➡️</span>'),
+                          }}
+                        />
+                      </div>
+                    ))}
 
-  {/* Fallback caso o Gemini ignore o formato (raro agora) */}
-  {msg.content.includes('###RECEITA') === false && (
-    <div className="bg-white p-8 rounded-2xl border-2 border-gray-300">
-      <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/\n/g, '<br>') }} />
-    </div>
-  )}
-</div>
+                  {/* Fallback se o Gemini ignorar o formato */}
+                  {msg.content.includes('###RECEITA') === false && (
+                    <div className="bg-white p-8 rounded-2xl border-2 border-gray-300">
+                      <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/\n/g, '<br>') }} />
+                    </div>
+                  )}
+                </div>
               ) : (
-                <p>{msg.content}</p>
+                <p className="text-lg">{msg.content}</p>
               )}
             </div>
           </div>
@@ -236,7 +244,7 @@ export default function ChatPage() {
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white p-4 rounded-full transition"
+            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white p-4 rounded-full transition flex items-center justify-center"
           >
             <Send size={28} />
           </button>
