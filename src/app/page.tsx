@@ -242,14 +242,14 @@ export default function Home() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <form onSubmit={handleSubmit} className="p-6 bg-white border-t shadow-2xl">
+{/* Input */}
+      <form onSubmit={handleSubmit} className="p-4 bg-white border-t shadow-2xl">
         <div className="max-w-4xl mx-auto flex gap-4">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ex: frango, arroz, ovo, tomate..."
+            placeholder="Ex: frango, arroz, ovo, tomate... Se tiver retrições, me avisa!"
             className="flex-1 px-8 py-6 rounded-full border-4 border-green-300 focus:outline-none focus:border-green-600 text-xl placeholder-gray-500"
             disabled={loading}
           />
@@ -265,3 +265,4 @@ export default function Home() {
     </div>
   )
 }
+export const runtime = 'edge'
