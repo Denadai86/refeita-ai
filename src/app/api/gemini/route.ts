@@ -1,20 +1,24 @@
 // src/app/api/gemini/route.ts
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const apiKey = process.env.GEMINI_API_KEY
+
+if (!apiKey) {
+  throw new Error('GEMINI_API_KEY não configurada no .env.local')
+}
+
+const genAI = new GoogleGenerativeAI(apiKey)
 
 export const POST = async (req: Request) => {
-  const { message } = await req.json()
+  try {
+    const { message } = await req.json()
 
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
 
-  const prompt = `Você é o Refeita AI, o maior chef brasileiro.
+    const prompt = `Gere EXATAMENTE 2 receitas brasileiras completas usando estes ingredientes: ${message}
 
-Gere EXATAMENTE 2 receitas usando estes ingredientes: ${message}
-
-FORMATO OBRIGATÓRIO (nunca mude):
-
-### TÍTULO DA RECEITA 1 (bem criativo e brasileiro) ###
+FORMATO OBRIGATÓRIO:
+### TÍTULO DA RECEITA 1 (criativo e brasileiro) ###
 Tempo: XX min
 Ingredientes que tenho:
 ✅ item
@@ -24,32 +28,29 @@ Passo a passo:
 1. ...
 Dica do chef: ...
 
-### TÍTULO DA RECEITA 2 (bem criativo e brasileiro) ###
-Tempo: XX min
-Ingredientes que tenho:
-✅ item
-Ingredientes extras:
-➡️ item
-Passo a passo:
-1. ...
-Dica do chef: ...
+### TÍTULO DA RECEITA 2 (criativo e brasileiro) ###
+(mesmo formato)
 
-Responda SÓ as receitas, sem saudação.`
+Responda SÓ as receitas.`
 
-  const result = await model.generateContentStream(prompt)
+    const result = await model.generateContentStream(prompt)
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      for await (const chunk of result.stream) {
-        controller.enqueue(new TextEncoder().encode(chunk.text()))
-      }
-      controller.close()
-    },
-  })
+    const stream = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of result.stream) {
+          controller.enqueue(new TextEncoder().encode(chunk.text()))
+        }
+        controller.close()
+      },
+    })
 
-  return new Response(stream, {
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-  })
+    return new Response(stream, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
+  } catch (error: any) {
+    console.error('Gemini error:', error)
+    return new Response('Erro no servidor. Tenta de novo!', { status: 500 })
+  }
 }
 
 export const runtime = 'edge'
