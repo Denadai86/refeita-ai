@@ -147,7 +147,7 @@ export default function Home() {
       <header className="bg-green-600 text-white p-5 shadow-xl">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <img src="/Refeita-ai.png" alt="Refeita AI" className="w-16 h-16 rounded-full object-cover" />
+            <img src="/logo.png" alt="Refeita AI" className="w-16 h-16 rounded-full object-cover" />
             <h1 className="text-3xl font-bold">Refeita AI</h1>
           </div>
           {user && (
