@@ -138,7 +138,12 @@ export default function ChatPage() {
       {/* Header */}
       <header className="bg-green-600 text-white p-4 shadow-lg">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <img
+              src="/refeita-ai.png"
+              alt="Refeita AI Logo"
+              className="w-12 h-12 rounded-full object-cover"
+            />
             <ChefHat size={32} />
             <h1 className="text-2xl font-bold">Refeita AI</h1>
           </div>

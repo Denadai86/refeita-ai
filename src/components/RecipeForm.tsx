@@ -68,19 +68,19 @@ export default function RecipeForm({ onRecipeGenerated }: RecipeFormProps) {
         
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Ingredientes
+            Ingredientes (o que você já tem pronto ou disponível para preparar)
           </label>
           <input
             name="mainIngredients"
             required
-            placeholder="Ex: frango, cebola, batata"
+            placeholder="ex: arroz cozido, frango cru, legumes picados"
             className="w-full p-3 border rounded-lg"
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Restrições
+            Restrições (ex: alergia a amendoim, evitar lactose, sem glúten)
           </label>
           <input
             name="restrictions"
@@ -106,7 +106,7 @@ export default function RecipeForm({ onRecipeGenerated }: RecipeFormProps) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Culinária
+              Tipo de culinária (ex: italiana, brasileira)
             </label>
             <input
               name="cuisinePreference"
