@@ -23,7 +23,7 @@ export default function Home() {
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-5">
               <img
-                src="/logo.png" 
+                src="/android-chrome-512x512.png" 
                 alt="Refeita AI" 
                 className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg"
               />
