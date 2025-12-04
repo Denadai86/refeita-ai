@@ -22,7 +22,7 @@ export default function Home() {
         <header className="bg-green-600 text-white p-6 shadow-xl relative">
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-5">
-              <img 
+              <img
                 src="/logo.png" 
                 alt="Refeita AI" 
                 className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg"
