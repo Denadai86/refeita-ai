@@ -1,136 +1,89 @@
 // src/lib/llm.ts
+import { GoogleGenerativeAI } from '@google/generative-ai'
+import { RecipeDetail } from '@/types/recipe'
 
-import { RecipeDetail } from "@/types/recipe";
-// Certifique-se de que o arquivo gemini.ts está no caminho correto
-import { generateWithGemini } from "@/utils/gemini"; 
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
-type GenResponse = any;
+const MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.0-pro'] as const
 
-// Lista de modelos oficiais (ajustado para versões existentes e estáveis)
-const MODEL_FALLBACK = [
-  "gemini-2.5-flash",      // Versão balanceada
-  "gemini-2.5-pro",        // Maior raciocínio
-  
-];
-
-export async function generateRecipe(req: {
-  ingredients: string;
-  restrictions: string;
-  maxTime: number;
-  numberOfRecipes?: number;
-}): Promise<RecipeDetail[]> {
-  const quantity = req.numberOfRecipes || 3;
-
-  // Prompt otimizado para garantir formato de string nos ingredientes
-  const userPrompt = `
-  Atue como um chef experiente.
-  Ingredientes disponíveis: ${req.ingredients}
-  Restrições alimentares: ${req.restrictions || "Nenhuma"}
-  Tempo máximo de preparo: ${req.maxTime} minutos
-  
-  Gere exatamente ${quantity} receitas criativas e viáveis usando PRINCIPALMENTE os ingredientes disponíveis.
-  
-  IMPORTANTE SOBRE OS INGREDIENTES:
-  Retorne a lista de ingredientes como strings simples que já contenham a quantidade e o nome.
-  Exemplo Correto: ["200g de Frango", "1 colher de azeite", "Sal a gosto"]
-  
-  Retorne APENAS um array JSON válido seguindo estritamente esta estrutura (sem markdown):
-  [
-    {
-      "name": "Nome da Receita",
-      "ingredients": [
-        "quantidade + ingrediente 1", 
-        "quantidade + ingrediente 2"
-      ],
-      "instructions": ["passo 1", "passo 2"],
-      "prepTime": 30,
-      "servings": "2 pessoas",
-      "calories": 500,
-      "difficulty": "Fácil"
-    }
-  ]
-  `;
-
-  let lastErr: any = null;
-
-  // Tenta os modelos em ordem (Fallback Strategy)
-  for (const model of MODEL_FALLBACK) {
-    try {
-      const res: GenResponse = await generateWithGemini({
-        model,
-        prompt: userPrompt,
-        temperature: 0.7,
-        maxOutputTokens: 4000
-      });
-
-      // Normalização da resposta
-      const rawText =
-        res?.text || 
-        res?.output?.[0]?.content?.map((c: any) => c?.text).filter(Boolean).join("") ||
-        res?.candidates?.[0]?.content?.[0]?.text ||
-        (typeof res === "string" ? res : undefined);
-
-      if (!rawText || String(rawText).trim().length === 0) {
-        throw new Error(`Resposta vazia do modelo ${model}`);
-      }
-
-      // Limpeza severa para garantir JSON válido
-      const cleaned = String(rawText)
-        .replace(/^```json\s*/i, "")
-        .replace(/^```/i, "")
-        .replace(/```$/g, "")
-        .trim();
-
-      try {
-        const parsed = JSON.parse(cleaned);
-        // Garante que é um array
-        return Array.isArray(parsed) ? parsed : [parsed];
-      } catch (parseErr) {
-        console.warn(`[LLM] Falha ao parsear JSON do modelo ${model}.`);
-        lastErr = parseErr;
-        continue;
-      }
-
-    } catch (err) {
-      lastErr = err;
-      console.error(`[LLM] Erro com modelo ${model}:`, (err instanceof Error) ? err.message : err);
-    }
-  }
-
-  throw new Error(`Falha na geração de receitas após tentar todos os modelos. Último erro: ${lastErr?.message || "Desconhecido"}`);
+interface GenerateRecipeParams {
+  ingredients: string
+  restrictions: string
+  maxTime: number
+  numberOfRecipes?: number
+  cuisinePreference?: string // ← NOVO: agora vem do formulário!
 }
 
-/**
- * Função utilitária para gerações de texto genéricas
- */
-export async function generateWithFallback(prompt: string, options?: { temperature?: number; maxOutputTokens?: number; }) {
-  const opts = { temperature: 0.5, maxOutputTokens: 1024, ...(options || {}) };
-  let lastErr: any = null;
+export async function generateRecipe({
+  ingredients,
+  restrictions,
+  maxTime,
+  numberOfRecipes = 2,
+  cuisinePreference = 'brasileira', // padrão
+}: GenerateRecipeParams): Promise<RecipeDetail[]> {
+  const cuisineText = cuisinePreference && cuisinePreference !== 'Qualquer' 
+    ? `Estilo de culinária: ${cuisinePreference.toLowerCase()} (adapte os sabores, temperos e nomeação para esse estilo)` 
+    : 'Estilo de culinária: brasileira (padrão)'
 
-  for (const model of MODEL_FALLBACK) {
+  const prompt = `
+Você é um chef de renome mundial apaixonado, com alma de cozinheiro de rua tailandês, italiano, baiano — depende do que o usuário pedir.
+
+Ingredientes que a pessoa TEM em casa (OBRIGATÓRIO usar):
+${ingredients}
+
+${restrictions && restrictions !== 'Nenhuma' ? `Restrições: ${restrictions}` : ''}
+Tempo máximo: ${maxTime} minutos
+Estilo de culinária: ${cuisinePreference === 'Qualquer' ? 'brasileira com liberdade total' : cuisinePreference}
+
+Gere EXATAMENTE ${numberOfRecipes} receitas diferentes.
+
+REGRAS OBRIGATÓRIAS:
+- Dê um NOME CRIATIVO, divertido e inesquecível pra cada receita (ex: "Frango Dormiu no Limão e Acordou Tailandês")
+- Ingredientes que a pessoa já tem → começar com "✓ "
+- Ingredientes extras básicos → começar com "➕ "
+- No final de cada receita, adicione uma "dica do chef" curta, emocional e brasileira (ex: "Se tiver uma música tocando enquanto come, melhor ainda.")
+
+Retorne APENAS JSON válido:
+
+[
+  {
+    "name": "Frango Tailandês que Esqueceu de Ser Triste",
+    "ingredients": ["✓ 200g de peito de frango assado", "✓ 2 ovos", "✓ suco de 1 limão rosa", "➕ 1 colher de molho de peixe", "➕ coentro fresco"],
+    "instructions": ["Mistura tudo", "Frita o ovo com amor", "Joga por cima"],
+    "prepTime": 12,
+    "difficulty": "Fácil",
+    "calories": 480,
+    "servings": "1 alma feliz",
+    "tip": "Se apertar mais limão rosa na hora de comer, o limão agradece e você também."
+  }
+]
+`.trim()
+
+  for (const modelName of MODELS) {
     try {
-      const res: GenResponse = await generateWithGemini({
-        model,
-        prompt,
-        temperature: opts.temperature,
-        maxOutputTokens: opts.maxOutputTokens
-      });
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          temperature: 0.85,
+          maxOutputTokens: 4000,
+          responseMimeType: 'application/json',
+        },
+      })
 
-      const text =
-        res?.text ||
-        res?.output?.[0]?.content?.map((c: any) => c?.text).filter(Boolean).join("") ||
-        res?.candidates?.[0]?.content?.[0]?.text ||
-        (typeof res === "string" ? res : undefined);
+      const result = await model.generateContent(prompt)
+      const text = result.response.text()
 
-      if (text && String(text).trim().length > 0) {
-        return { model, text, raw: res };
+      const cleaned = text.replace(/^```json\s*|```$/g, '').trim()
+      const parsed = JSON.parse(cleaned)
+
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed as RecipeDetail[]
       }
-
     } catch (err) {
-      lastErr = err;
-      console.warn(`[LLM] Erro (Fallback) com modelo ${model}:`, (err as any).message);
+      console.warn(`[LLM] Falha com ${modelName}:`, err instanceof Error ? err.message : err)
+      continue
     }
   }
 
-  throw new Error(`Todos os modelos falharam. Último erro: ${(lastErr && (lastErr.message || String(lastErr))) || "desconhecido"}`);
+  throw new Error('Falha ao gerar receitas com Gemini.')
 }

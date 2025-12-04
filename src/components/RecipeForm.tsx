@@ -1,3 +1,5 @@
+//src/components/RecipeForm.tsx
+
 'use client';
 
 import { useEffect } from 'react';
@@ -80,7 +82,7 @@ export default function RecipeForm({ onRecipeGenerated }: RecipeFormProps) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Restrições (ex: alergia a amendoim, evitar lactose, sem glúten)
+            Restrições (ex: alergia a amendoim, evitar lactose, sem glúten, vegana)
           </label>
           <input
             name="restrictions"

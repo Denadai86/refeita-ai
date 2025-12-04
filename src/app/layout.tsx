@@ -5,8 +5,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google"; 
 
 import "./globals.css";
-// 2. Importe o AuthProvider que criamos na etapa anterior
-import AuthProvider from "@/components/auth/AuthProvider"; 
+
 
 // 3. Inicializa a fonte, se necessário (Aqui usamos Inter como exemplo, mas você pode usar o padrão)
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -34,23 +33,15 @@ export default function RootLayout({
     <html lang="pt-BR" className={inter.variable}>
       {/* Removemos as variáveis de fonte Geist se você não precisar delas */}
       <body className={`antialiased`}>
+
         {/* 6. Envolve o app com o AuthProvider para contexto de sessão */}
-        <AuthProvider>
+
           {/* Adicionamos uma div principal com o fundo da aplicação, facilitando o layout */}
           <div className="min-h-screen bg-gray-50 text-gray-900">
              {children}
           </div>
-        </AuthProvider>
+
       </body>
     </html>
   );
 }
-
-/*
-Caso você queira manter as fontes Geist:
-Basta reintroduzir as importações e variáveis:
-import { Geist, Geist_Mono } from "next/font/google";
-// ...
-<html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable}`}>
-// ...
-*/
