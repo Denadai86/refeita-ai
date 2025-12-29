@@ -2,8 +2,31 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { RecipeDetail } from '@/types/recipe'
 
-// 🟢 Usando nomes de modelos estáveis e atuais para evitar Erros 404
-const MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3-pro-preview'] as const
+// ============================================================================
+// CONFIGURAÇÃO E CONSTANTES
+// ============================================================================
+
+// Modelos definidos manualmente pelo João (Dez/2025)
+const TEXT_MODELS = [
+  'gemini-2.5-flash',       // Mais rápido e estável atual
+  'gemini-2.5-pro',         // Fallback ultra estável
+  'gemini-3-flash-preview', // Fallback de alta qualidade
+] as const
+
+const VISION_MODELS = [
+  'gemini-2.5-flash',       // Mais rápido e estável atual
+  'gemini-2.5-pro',         // Fallback ultra estável
+  'gemini-3-flash-preview', // Fallback de alta qualidade
+] as const
+
+// Mensagem exata de erro para controle no frontend
+export const NO_INGREDIENTS_MSG = "* * *Nenhum ingrediente identificado* * *";
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// ============================================================================
+// TYPES & HELPERS
+// ============================================================================
 
 interface GenerateRecipeParams {
   ingredients: string
@@ -13,10 +36,33 @@ interface GenerateRecipeParams {
   cuisinePreference?: string
 }
 
-/**
- * GERAÇÃO DE RECEITAS (Texto -> Objeto)
- * Focada em transformar a string de ingredientes em receitas estruturadas.
- */
+function cleanAndParseJSON<T>(text: string): T {
+  const cleanText = text.replace(/```json\n?|\n?```/g, '').trim();
+  try {
+    return JSON.parse(cleanText) as T;
+  } catch {
+    const jsonMatch = text.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]) as T;
+      } catch (e) {
+        throw new Error("Falha ao corrigir estrutura do JSON da IA");
+      }
+    }
+    throw new Error("Nenhum JSON válido detectado na resposta.");
+  }
+}
+
+function getGenAI() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("CRÍTICO: GEMINI_API_KEY não configurada.");
+  return new GoogleGenerativeAI(apiKey);
+}
+
+// ============================================================================
+// CORE: GERAÇÃO DE RECEITAS
+// ============================================================================
+
 export async function generateRecipe({
   ingredients,
   restrictions,
@@ -25,88 +71,104 @@ export async function generateRecipe({
   cuisinePreference = 'brasileira',
 }: GenerateRecipeParams): Promise<RecipeDetail[]> {
   
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("Configuração GEMINI_API_KEY não encontrada.");
-
-  const genAI = new GoogleGenerativeAI(apiKey);
+  const genAI = getGenAI();
 
   const prompt = `
-Você é um chef de renome mundial especializado em cozinha criativa e desperdício zero.
-Ingredientes disponíveis: ${ingredients}
-Restrições alimentares: ${restrictions}
-Tempo máximo de preparo: ${maxTime} minutos
-Estilo gastronômico: ${cuisinePreference}
+Você é um chef criativo e sustentável.
+Contexto:
+- Ingredientes: ${ingredients}
+- Restrições: ${restrictions}
+- Tempo Max: ${maxTime} min
+- Estilo: ${cuisinePreference}
 
-Gere EXATAMENTE ${numberOfRecipes} receitas diferentes.
-REGRAS:
-- Use nomes divertidos e criativos.
-- Inclua uma "dica do chef" emocional ao final.
+Tarefa: Crie ${numberOfRecipes} receitas.
+Saída OBRIGATÓRIA: Array JSON puro, sem markdown.
+Schema:
+[{
+  "name": "Nome Criativo",
+  "ingredients": ["item 1", "item 2"],
+  "instructions": ["passo 1", "passo 2"],
+  "prepTime": 30,
+  "difficulty": "Fácil",
+  "calories": "aprox 500kcal",
+  "tip": "Dica emocional do chef"
+}]
+`.trim();
 
-Retorne APENAS um array JSON válido:
-[{ "name": "Nome", "ingredients": ["✓ item"], "instructions": ["passo"], "prepTime": 10, "difficulty": "Fácil", "tip": "dica" }]
-`.trim()
+  let lastError: any;
 
-  for (const modelName of MODELS) {
+  for (let i = 0; i < TEXT_MODELS.length; i++) {
+    const modelName = TEXT_MODELS[i];
     try {
+      console.log(`[LLM] Tentando modelo: ${modelName} (tentativa ${i + 1})`);
+      
       const model = genAI.getGenerativeModel({
         model: modelName,
         generationConfig: {
-          temperature: 0.8,
-          maxOutputTokens: 2048,
+          temperature: 0.7,
           responseMimeType: 'application/json',
         },
-      })
+      });
 
-      const result = await model.generateContent(prompt)
-      const text = result.response.text()
-      
-      // Limpeza robusta de blocos de código markdown
-      const cleaned = text.replace(/^```json\s*|```$/g, '').trim()
-      const parsed = JSON.parse(cleaned)
+      const result = await Promise.race([
+        model.generateContent(prompt),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000))
+      ]) as any;
 
-      if (Array.isArray(parsed)) return parsed as RecipeDetail[]
-    } catch (err) {
-      console.warn(`[LLM-Generator] Falha com modelo ${modelName}. Tentando próximo...`);
-      continue;
+      const text = result.response.text();
+      const recipes = cleanAndParseJSON<RecipeDetail[]>(text);
+
+      if (!Array.isArray(recipes) || recipes.length === 0) {
+        throw new Error("IA retornou formato inválido (não é array)");
+      }
+
+      return recipes;
+
+    } catch (err: any) {
+      console.warn(`[LLM] Falha no modelo ${modelName}:`, err.message);
+      lastError = err;
+      if (err.message?.includes('429') || err.message?.includes('503')) {
+        await wait(1500 * (i + 1));
+      }
     }
   }
-  throw new Error('O Chef IA está temporariamente ocupado. Tente novamente em alguns segundos.');
+
+  throw new Error(`O Chef está indisponível no momento. (${lastError?.message || 'Erro desconhecido'})`);
 }
 
-/**
- * DETECÇÃO DE INGREDIENTES (Imagem -> Texto)
- * Utiliza capacidades multimodais para ler fotos de geladeiras e despensas.
- */
-export async function detectIngredientsFromImages(base64Images: string[]): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("Configuração GEMINI_API_KEY não encontrada.");
+// ============================================================================
+// CORE: DETECÇÃO DE INGREDIENTES
+// ============================================================================
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  
-  // Flash é ideal para visão devido à velocidade e custo
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+export async function detectIngredientsFromImages(base64Images: string[]): Promise<string> {
+  const genAI = getGenAI();
 
   const prompt = `
-Analise cuidadosamente as imagens anexadas de uma geladeira ou armário.
-Sua tarefa é listar APENAS os ingredientes comestíveis que você consegue identificar.
-Retorne apenas os nomes dos itens separados por vírgula.
-Se não identificar nenhum alimento, responda exatamente: "Nenhum ingrediente detectado".
+Analise estas imagens de alimentos (geladeira/despensa).
+Liste APENAS os ingredientes comestíveis visíveis, separados por vírgula.
+Ignore embalagens não alimentícias, prateleiras ou sujeira.
+Exemplo: "Ovos, Leite, Tomate, Cenoura"
+Se não houver comida visível, responda EXATAMENTE: "${NO_INGREDIENTS_MSG}".
 `.trim();
 
-  // Mapeia imagens para o formato inlineData aceito pela API do Google
   const imageParts = base64Images.map(base64 => ({
-    inlineData: {
-      data: base64,
-      mimeType: "image/jpeg" // Assegure-se que o frontend envia JPEG ou ajuste dinamicamente
-    }
+    inlineData: { data: base64, mimeType: "image/jpeg" }
   }));
 
-  try {
-    const result = await model.generateContent([prompt, ...imageParts]);
-    const response = await result.response;
-    return response.text().trim();
-  } catch (error) {
-    console.error("Erro na detecção visual Gemini:", error);
-    throw new Error("O Chef não conseguiu analisar as fotos. Verifique a iluminação e tente novamente.");
+  for (const modelName of VISION_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent([prompt, ...imageParts]);
+      const text = result.response.text().trim();
+      
+      if (!text) throw new Error("Resposta vazia da IA");
+      return text;
+
+    } catch (err: any) {
+      console.warn(`[Vision] Falha no modelo ${modelName}:`, err.message);
+      // Continua para o próximo sem delay longo
+    }
   }
+
+  throw new Error("Não foi possível analisar as imagens. Tente tirar fotos mais claras.");
 }

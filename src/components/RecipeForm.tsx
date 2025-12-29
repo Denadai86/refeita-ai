@@ -1,184 +1,173 @@
 // src/components/RecipeForm.tsx
-'use client';
+'use client'
 
-import { useEffect, useState, useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
-import { ImageUploader } from './ImageUploader';
-import { identifyIngredientsAction } from '@/actions/recipe'; 
-import { RecipeActionState, PrepTimeOption } from '@/types/recipe';
-import { generateRecipeAction } from '@/app/actions';
-import { Loader2, Sparkles } from 'lucide-react';
-
-const initialState: RecipeActionState = {
-  success: false,
-  message: '',
-};
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className={`w-full py-4 px-4 font-bold rounded-xl shadow-lg transition-all active:scale-95
-      ${pending ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}
-    `}
-    >
-      {pending ? (
-        <span className="flex items-center justify-center gap-2">
-          <Loader2 className="animate-spin" /> Gerando sua janta...
-        </span>
-      ) : (
-        <span className="flex items-center justify-center gap-2">
-          Gerar Receita Mágica! 👩‍🍳
-        </span>
-      )}
-    </button>
-  );
-}
+import React, { useState, useTransition } from 'react'
+import { ImageUploader } from './ImageUploader'
+import { identifyIngredientsAction } from '@/actions/recipe'
+import { Loader2, ChefHat, Sparkles, AlertCircle, Clock, Utensils } from 'lucide-react'
+import { NO_INGREDIENTS_MSG } from '@/lib/llm'
 
 interface RecipeFormProps {
-  onRecipeGenerated?: (state: RecipeActionState) => void;
+  onSubmit: (data: {
+    ingredients: string
+    restrictions: string
+    maxTime: string
+    cuisinePreference: string
+  }) => void
+  isLoading: boolean
 }
 
-export default function RecipeForm({ onRecipeGenerated }: RecipeFormProps) {
-  const [state, formAction] = useActionState(generateRecipeAction, initialState);
+export default function RecipeForm({ onSubmit, isLoading }: RecipeFormProps) {
+  const [ingredients, setIngredients] = useState('')
+  const [restrictions, setRestrictions] = useState('')
+  const [prepTime, setPrepTime] = useState('Rápido (até 30min)')
+  const [cuisine, setCuisine] = useState('') // Agora inicia vazio para o input
   
-  // Estados para a funcionalidade de Visão (Foto)
-  const [base64Images, setBase64Images] = useState<string[]>([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [manualIngredients, setManualIngredients] = useState('');
+  const [isIdentifying, startIdentifying] = useTransition()
+  const [visionError, setVisionError] = useState(false)
 
-  const timeOptions: PrepTimeOption[] = [
-    'SuperRápido(até 15min)',
-    'Rápido (até 30min)',
-    'Normal (30-60min)',
-    'Qualquer',
-  ];
+  const handleImagesChange = async (base64Images: string[]) => {
+    if (ingredients === NO_INGREDIENTS_MSG) {
+      setIngredients('')
+      setVisionError(false)
+    }
 
-  // Função que chama a IA de Visão
-  const handleVisionAnalysis = async () => {
-    if (base64Images.length === 0) return;
-    
-    setIsAnalyzing(true);
-    try {
-      const result = await identifyIngredientsAction(base64Images);
-      
-      if (result.success && result.ingredients) {
-        // Concatena o que a IA viu com o que já estava escrito
-        setManualIngredients(prev => prev ? `${prev}, ${result.ingredients}` : result.ingredients);
+    if (base64Images.length === 0) return
+
+    startIdentifying(async () => {
+      try {
+        setVisionError(false)
+        const result = await identifyIngredientsAction(base64Images)
+        
+        if (!result.success) return
+
+        const detectedText = result.ingredients || ''
+
+        if (detectedText === NO_INGREDIENTS_MSG) {
+          setVisionError(true)
+          setIngredients(NO_INGREDIENTS_MSG)
+        } else {
+          setIngredients(prev => {
+            if (!prev || prev === NO_INGREDIENTS_MSG) return detectedText
+            return `${prev.trim()}, ${detectedText.trim()}`
+          })
+        }
+      } catch (error) {
+        console.error("Erro na visão:", error)
       }
-    } catch (err) {
-      console.error("Erro na análise de visão:", err);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+    })
+  }
 
-  useEffect(() => {
-    if (onRecipeGenerated && state.success && state.recipes) {
-      onRecipeGenerated(state);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (ingredients.trim() === NO_INGREDIENTS_MSG || !ingredients.trim()) {
+      alert("Por favor, adicione ingredientes.")
+      return
     }
-  }, [state, onRecipeGenerated]);
+    
+    onSubmit({
+      ingredients,
+      restrictions,
+      maxTime: prepTime,
+      cuisinePreference: cuisine || "Qualquer" // Fallback se deixar vazio
+    })
+  }
 
   return (
-    <div className="p-6 bg-white rounded-2xl shadow-xl border border-gray-100">
-      <h2 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2">
-        <Sparkles className="text-yellow-500" /> O que temos pra hoje?
-      </h2>
-
-      {/* 1. SEÇÃO DE FOTO (VISÃO) */}
-      <div className="mb-8 p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
-        <label className="block text-sm font-bold text-indigo-900 mb-3">
-          Preguiça de digitar? Tire foto da geladeira/armário! 📸
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Seção de Câmera */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+        <label className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-purple-500" />
+          Identificar pela Câmera
         </label>
-        
-        <ImageUploader onImagesChange={setBase64Images} />
-        
-        {base64Images.length > 0 && (
-          <button
-            type="button"
-            onClick={handleVisionAnalysis}
-            disabled={isAnalyzing}
-            className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all"
-          >
-            {isAnalyzing ? (
-              <><Loader2 className="animate-spin w-4 h-4" /> Analisando fotos...</>
-            ) : (
-              "🔍 Identificar Ingredientes nas Fotos"
-            )}
-          </button>
+        <ImageUploader onImagesChange={handleImagesChange} />
+        {isIdentifying && (
+          <div className="mt-3 flex items-center gap-2 text-sm text-purple-600 bg-purple-50 p-2 rounded-lg animate-pulse">
+            <Loader2 className="w-4 h-4 animate-spin" /> Analisando fotos...
+          </div>
         )}
       </div>
 
-      {state.message && (
-        <div className={`p-4 mb-6 rounded-xl font-bold text-sm ${
-          state.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-        }`}>
-          {state.message}
-        </div>
-      )}
-
-      <form action={formAction} className="space-y-6">
-        {/* Campo de Ingredientes (Controlado para aceitar o texto da IA) */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Ingredientes */}
         <div>
-          <label className="block text-sm font-bold text-gray-700 mb-1">
-            Ingredientes (escreva ou use a foto acima)
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Ingredientes</label>
           <textarea
-            name="mainIngredients"
             required
             rows={3}
-            value={manualIngredients}
-            onChange={(e) => setManualIngredients(e.target.value)}
-            placeholder="ex: arroz cozido, frango cru, legumes picados"
-            className="w-full p-4 border-2 border-gray-100 rounded-xl focus:border-green-500 focus:ring-0 transition-all outline-none"
+            className={`w-full rounded-xl border p-3 text-base outline-none transition-all ${
+              visionError ? 'border-red-300 bg-red-50 text-red-700' : 'border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-100'
+            }`}
+            placeholder="Ex: Frango, batata, cebola..."
+            value={ingredients}
+            onChange={(e) => {
+              setIngredients(e.target.value)
+              if (visionError) setVisionError(false)
+            }}
           />
+          {visionError && (
+            <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" /> Não identificamos comida na foto.
+            </p>
+          )}
         </div>
 
-        <div>
-          <label className="block text-sm font-bold text-gray-700 mb-1">
-            Restrições ou preferências (ex: sem glúten, vegana)
-          </label>
-          <input
-            name="restrictions"
-            placeholder="Opcional"
-            className="w-full p-4 border-2 border-gray-100 rounded-xl focus:border-green-500 outline-none"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Grid de Preferências */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Tempo de Preparo (Mantido Select por ser métrica técnica) */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">
-              Tempo disponível
+            <label className="text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+              <Clock className="w-4 h-4" /> Tempo Máximo
             </label>
-            <select
-              name="prepTimePreference"
-              className="w-full p-4 border-2 border-gray-100 rounded-xl focus:border-green-500 outline-none bg-white"
+            <select 
+              className="w-full rounded-xl border border-gray-200 p-3 bg-white outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+              value={prepTime}
+              onChange={(e) => setPrepTime(e.target.value)}
             >
-              {timeOptions.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
+              <option>Super Rápido (até 15min)</option>
+              <option>Rápido (até 30min)</option>
+              <option>Normal (30-60min)</option>
+              <option>Qualquer</option>
             </select>
           </div>
 
+          {/* Tipo de Culinária (Agora como Input Aberto) */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">
-              Estilo de Culinária
+            <label className="text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+              <Utensils className="w-4 h-4" /> Estilo de Culinária
             </label>
-            <input
-              name="cuisinePreference"
-              placeholder="Ex: Italiana, Mineira..."
-              className="w-full p-4 border-2 border-gray-100 rounded-xl focus:border-green-500 outline-none"
+            <input 
+              type="text"
+              className="w-full rounded-xl border border-gray-200 p-3 bg-white outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+              placeholder="Ex: Italiana, Saudável, Comida de Vó..."
+              value={cuisine}
+              onChange={(e) => setCuisine(e.target.value)}
             />
           </div>
         </div>
 
-        <input type="hidden" name="numberOfRecipes" value="2" />
+        {/* Restrições */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Restrições Alimentares</label>
+          <input
+            type="text"
+            className="w-full rounded-xl border border-gray-200 p-3 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+            placeholder="Ex: Sem glúten, Vegano, Sem lactose..."
+            value={restrictions}
+            onChange={(e) => setRestrictions(e.target.value)}
+          />
+        </div>
 
-        <SubmitButton />
+        <button
+          type="submit"
+          disabled={isLoading || isIdentifying || ingredients === NO_INGREDIENTS_MSG}
+          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-lg active:scale-[0.98]"
+        >
+          {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <ChefHat className="w-6 h-6" />}
+          {isLoading ? "O Chef está cozinhando..." : "Gerar Receitas"}
+        </button>
       </form>
     </div>
-  );
+  )
 }

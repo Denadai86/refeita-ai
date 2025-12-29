@@ -1,68 +1,83 @@
-//src/components/RecipeFeed.tsx
-
+// src/components/RecipeFeed.tsx
 'use client'
 
-import { useEffect, useState } from 'react';
-import { getPublicFeed, SavedRecipe } from '@/lib/firestore-service';
-import { Loader2, ChefHat, Heart } from 'lucide-react';
-import Link from 'next/link';
+import { useEffect, useState } from 'react'
+import { db } from '@/lib/firebase'
+import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore'
+import { RecipeDetail } from '@/types/recipe'
+import RecipeDisplay from './RecipeDisplay'
+import { Loader2, Users } from 'lucide-react'
 
-export function RecipeFeed() {
-  const [feed, setFeed] = useState<SavedRecipe[]>([]);
-  const [loading, setLoading] = useState(true);
+interface SavedRecipe {
+  id: string
+  recipeTitle: string
+  recipeContent: string
+  userName: string
+  createdAt: any
+}
+
+export default function RecipeFeed() {
+  const [recipes, setRecipes] = useState<SavedRecipe[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function load() {
-      const data = await getPublicFeed(6); // Busca as últimas 6
-      setFeed(data);
-      setLoading(false);
-    }
-    load();
-  }, []);
+    // Query: Receitas públicas, ordenadas pelas mais recentes
+    const q = query(
+      collection(db, 'recipes'),
+      where('isPublic', '==', true),
+      orderBy('createdAt', 'desc'),
+      limit(10)
+    )
 
-  if (loading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-green-600" /></div>;
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const feedItems = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as SavedRecipe[]
+      
+      setRecipes(feedItems)
+      setLoading(false)
+    }, (error) => {
+      console.error("Erro no Feed:", error)
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="w-10 h-10 text-green-500 animate-spin" />
+      </div>
+    )
+  }
 
   return (
-    <section className="py-12 bg-orange-50/50">
-      <div className="max-w-5xl mx-auto px-4">
-        <div className="text-center mb-10">
-          <h2 className="text-3xl font-bold text-gray-800 flex items-center justify-center gap-2">
-            <ChefHat className="text-orange-500" />
-            O que estão cozinhando agora?
-          </h2>
-          <p className="text-gray-600 mt-2">Ideias reais de geladeiras reais pelo Brasil.</p>
+    <div className="space-y-8 pb-20">
+      <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+        <div className="p-2 bg-green-100 rounded-lg text-green-600">
+          <Users className="w-6 h-6" />
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {feed.map((recipe) => (
-            <div key={recipe.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-3">
-                <span className="text-xs font-semibold bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                  {recipe.userName || 'Chef Anônimo'}
-                </span>
-                <span className="text-xs text-gray-400">Recente</span>
-              </div>
-              
-              <h3 className="font-bold text-lg text-gray-800 mb-2 line-clamp-2">
-                {recipe.recipeTitle}
-              </h3>
-              
-              <p className="text-sm text-gray-500 mb-4 line-clamp-3 italic">
-                "Ingredientes usados: {recipe.ingredients.slice(0, 50)}..."
-              </p>
-
-              <div className="flex items-center justify-between text-sm text-gray-500 border-t pt-3">
-                <button className="flex items-center gap-1 hover:text-red-500 transition-colors">
-                  <Heart className="w-4 h-4" /> {recipe.likes || 0}
-                </button>
-                <button className="text-indigo-600 font-medium hover:underline">
-                  <Link href={`/${recipe.id}`}>Ver Receita →</Link>
-                </button>
-              </div>
-            </div>
-          ))}
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">Feed da Comunidade</h2>
+          <p className="text-sm text-gray-500">Veja o que outros chefs estão criando</p>
         </div>
       </div>
-    </section>
-  );
+
+      <div className="grid gap-8">
+        {recipes.map((item) => {
+          const recipeData = JSON.parse(item.recipeContent) as RecipeDetail
+          return (
+            <div key={item.id} className="relative group">
+              <div className="absolute -top-3 left-4 z-10 bg-white px-3 py-1 rounded-full border border-gray-100 shadow-sm text-xs font-medium text-gray-600">
+                👤 Criado por <span className="text-green-600 font-bold">{item.userName}</span>
+              </div>
+              <RecipeDisplay recipe={recipeData} index={0} />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }

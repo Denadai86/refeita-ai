@@ -1,10 +1,10 @@
-// src/components/RecipeDisplay.tsx (AJUSTADO PARA MOVER A DICA)
-
+// src/components/RecipeDisplay.tsx
 'use client';
 
 import { RecipeDetail } from '@/types/recipe';
 import { ChefHat, Clock, Users, Zap, Lightbulb, Flame } from 'lucide-react';
 import React from 'react';
+import ShareWhatsApp from './ShareWhatsApp';
 
 const MetaItem = ({ icon, value, label }: { icon: React.ReactNode, value: string | number, label: string }) => (
   <div className="flex flex-col items-center p-3">
@@ -21,7 +21,7 @@ export default function RecipeDisplay({ recipe, index }: { recipe: RecipeDetail,
   const tip = recipe.tip || null;
 
   return (
-    <div className="bg-white rounded-xl shadow-2xl overflow-hidden border-t-8 border-red-500 mb-10 transition-transform hover:scale-[1.01]">
+    <div className="bg-white rounded-xl shadow-2xl overflow-hidden border-t-8 border-red-500 mb-10 transition-all hover:scale-[1.005]">
       
       {/* 1. CABEÇALHO */}
       <div className="p-8 text-center border-b border-gray-100 bg-gradient-to-b from-white to-gray-50">
@@ -43,14 +43,14 @@ export default function RecipeDisplay({ recipe, index }: { recipe: RecipeDetail,
         <MetaItem icon={<Users size={20} />} value={recipe.servings || '2'} label="Porções" />
       </div>
 
-      <div className="p-8 space-y-8">
+      <div className="p-6 md:p-8 space-y-8">
         
         {/* 3. CONTEÚDO PRINCIPAL (DUAS COLUNAS) */}
         <div className="grid md:grid-cols-2 gap-10">
             
           {/* COLUNA: INGREDIENTES */}
-          <div>
-            <h3 className="flex items-center text-xl font-bold text-red-600 mb-4 pb-2 border-b border-red-100">
+          <div className="space-y-4">
+            <h3 className="flex items-center text-xl font-bold text-red-600 pb-2 border-b border-red-100">
               <Lightbulb className="mr-2 h-5 w-5" /> Ingredientes
             </h3>
             <ul className="space-y-3">
@@ -72,8 +72,8 @@ export default function RecipeDisplay({ recipe, index }: { recipe: RecipeDetail,
           </div>
 
           {/* COLUNA: MODO DE PREPARO */}
-          <div>
-            <h3 className="flex items-center text-xl font-bold text-red-600 mb-4 pb-2 border-b border-red-100">
+          <div className="space-y-4">
+            <h3 className="flex items-center text-xl font-bold text-red-600 pb-2 border-b border-red-100">
               <Zap className="mr-2 h-5 w-5" /> Modo de Preparo
             </h3>
             <ol className="space-y-4">
@@ -89,7 +89,7 @@ export default function RecipeDisplay({ recipe, index }: { recipe: RecipeDetail,
           </div>
         </div>
         
-        {/* 4. DICA DO CHEF (RODAPÉ DO CONTEÚDO) */}
+        {/* 4. DICA DO CHEF */}
         {tip && (
           <div className="flex gap-4 p-6 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg shadow-md mt-6">
             <ChefHat className="text-yellow-600 shrink-0 h-8 w-8" />
@@ -101,6 +101,15 @@ export default function RecipeDisplay({ recipe, index }: { recipe: RecipeDetail,
             </div>
           </div>
         )}
+
+        {/* 5. RODAPÉ DE COMPARTILHAMENTO (LARGURA TOTAL) */}
+        <div className="pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="text-center md:text-left">
+            <p className="text-sm font-bold text-gray-800">Gostou dessa sugestão?</p>
+            <p className="text-xs text-gray-400">Compartilhe sua criação com o mundo!</p>
+          </div>
+          <ShareWhatsApp recipeName={recipe.name} />
+        </div>
       </div>
     </div>
   );

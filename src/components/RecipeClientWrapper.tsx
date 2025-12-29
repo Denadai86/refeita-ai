@@ -1,7 +1,9 @@
+// src/components/RecipeClientWrapper.tsx
+
 'use client'
 
 import RecipeGenerator from './RecipeGenerator'
-import { RecipeFeed } from './RecipeFeed'
+import RecipeFeed from './RecipeFeed'
 import { useAuth } from '@/contexts/AuthContext'
 import { Sparkles } from 'lucide-react'
 
