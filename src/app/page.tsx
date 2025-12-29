@@ -7,14 +7,13 @@ export default function Home() {
   return (
     <>
       {/* BOTÃO FIXO NO CANTO SUPERIOR DIREITO - FAIXA VERDE */}
-<a
-  href="https://acaoleve.com"
-  className="fixed top-4 right-4 z-50 bg-sky-700 hover:bg-sky-800 text-white font-semibold py-3 px-7 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center gap-2"
->
-  <span className="text-xl">🔙</span>
-  <span>Voltar ao Portal</span>
-</a>
-
+      <a
+        href="https://acaoleve.com"
+        className="fixed top-4 right-4 z-50 bg-sky-700 hover:bg-sky-800 text-white font-semibold py-3 px-7 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center gap-2"
+      >
+        <span className="text-xl">🔙</span>
+        <span>Voltar ao Portal</span>
+      </a>
 
       {/* Conteúdo principal da Refeita AI */}
       <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
@@ -22,6 +21,7 @@ export default function Home() {
         <header className="bg-green-600 text-white p-6 shadow-xl relative">
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-5">
+              {/* Nota: Em produção, idealmente usaríamos <Image /> do Next.js, mas mantive img para preservar seu layout exato */}
               <img
                 src="/android-chrome-512x512.png" 
                 alt="Refeita AI" 
@@ -54,4 +54,5 @@ export default function Home() {
   )
 }
 
-export const runtime = 'edge'
+// REMOVIDO: export const runtime = 'edge' 
+// Motivo: Causava erro 503 e conflito com bibliotecas pesadas de IA na Vercel Hobby.

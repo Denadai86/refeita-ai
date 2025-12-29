@@ -1,77 +1,76 @@
-// src/components/RecipeClientWrapper.tsx
+'use client'
 
-'use client';
-
-import { useState } from 'react';
-import RecipeForm from './RecipeForm';
-import RecipeDisplay from './RecipeDisplay'; // <--- IMPORTANTE: Usando o componente bonito
-import { RecipeActionState, RecipeDetail } from '@/types/recipe';
+import { useState } from 'react'
+import RecipeGenerator from './RecipeGenerator'
+import { RecipeFeed } from './RecipeFeed'
+import { useAuth } from '@/contexts/AuthContext'
+import { LogIn, User, Sparkles } from 'lucide-react'
 
 export default function RecipeClientWrapper() {
-  const [result, setResult] = useState<RecipeActionState | null>(null);
+  const { user, login, loading } = useAuth();
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
-  function handleGenerated(state: RecipeActionState) {
-    setResult(state);
-    // Scroll suave para o resultado quando ele aparecer
-    if (state.success) {
-      setTimeout(() => {
-        const resultsElement = document.getElementById('results-section');
-        if (resultsElement) {
-          resultsElement.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 100);
-    }
-  }
-
-  const recipes: RecipeDetail[] = result?.recipes || [];
+  // Lógica simples para incentivar login
+  const handleLoginClick = async () => {
+    await login();
+  };
 
   return (
-    <div className="max-w-4xl mx-auto px-4">
-
-      {/* 1. Formulário de Entrada */}
-      <div className="mb-12">
-        <RecipeForm onRecipeGenerated={handleGenerated} />
+    <div className="flex flex-col min-h-screen">
+      
+      {/* 1. Barra de Usuário (Topo) */}
+      <div className="max-w-5xl mx-auto w-full px-4 pt-4 flex justify-end">
+        {loading ? (
+          <div className="h-10 w-32 bg-gray-200 animate-pulse rounded-full"></div>
+        ) : user ? (
+          <div className="flex items-center gap-3 bg-white pl-2 pr-4 py-1.5 rounded-full shadow-sm border border-green-100">
+             {user.photoURL ? (
+               <img src={user.photoURL} alt={user.displayName || 'User'} className="w-8 h-8 rounded-full border border-green-200" />
+             ) : (
+               <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                 <User className="w-4 h-4 text-green-700" />
+               </div>
+             )}
+             <div className="flex flex-col">
+               <span className="text-xs font-bold text-gray-700 leading-none">Olá, {user.displayName?.split(' ')[0]}</span>
+               <span className="text-[10px] text-green-600 font-medium">Membro Grátis</span>
+             </div>
+          </div>
+        ) : (
+          <button 
+            onClick={handleLoginClick}
+            className="group flex items-center gap-2 bg-white hover:bg-green-50 text-gray-700 px-5 py-2 rounded-full shadow-sm border border-gray-200 transition-all hover:border-green-300"
+          >
+            <div className="bg-green-100 p-1 rounded-full group-hover:bg-green-200 transition-colors">
+              <LogIn className="w-4 h-4 text-green-700" />
+            </div>
+            <span className="font-semibold text-sm">Entrar para Salvar</span>
+          </button>
+        )}
       </div>
 
-      {/* 2. Mensagem de Estado Inicial (Vazio) */}
-      {!result && (
-        <div className="text-center py-10 opacity-50">
-          <p className="text-gray-500 text-lg">
-            👆 Os ingredientes vão ali em cima. A mágica acontece aqui embaixo.
-          </p>
-        </div>
-      )}
+      {/* 2. Área Principal (Gerador) */}
+      <div className="flex-grow">
+        <RecipeGenerator />
+      </div>
 
-      {/* 3. Mensagem de Erro */}
-      {result && (!result.success || recipes.length === 0) && (
-        <div className="mt-8 p-6 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-lg shadow-sm text-center">
-          <h3 className="font-bold text-lg mb-2">Ops, algo deu errado.</h3>
-          <p>{result.message || "A IA não conseguiu gerar receitas. Tente simplificar os ingredientes."}</p>
-        </div>
-      )}
-
-      {/* 4. Lista de Receitas (Usando o Componente Visual Novo) */}
-      {recipes.length > 0 && (
-        <div id="results-section" className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-extrabold text-gray-800">
-              🍽️ O Chef Sugere:
-            </h2>
-            <p className="text-gray-500 mt-2">Escolha sua favorita e bom apetite!</p>
+      {/* 3. Área da Comunidade (Feed) */}
+      {/* User anonimo vê isso como prova social para fazer login */}
+      <div className="relative">
+        
+        {/* Banner de Incentivo para Anônimos (Opcional - "Hypor") */}
+        {!user && !loading && (
+          <div className="bg-indigo-600 text-white py-3 px-4 text-center">
+            <p className="text-sm font-medium flex items-center justify-center gap-2">
+              <Sparkles className="w-4 h-4 text-yellow-300" />
+              <span>Gostou? <button onClick={handleLoginClick} className="underline hover:text-indigo-200 font-bold">Faça login grátis</button> para salvar suas receitas e desbloquear mais limites!</span>
+            </p>
           </div>
+        )}
 
-          {recipes.map((recipe, index) => (
-            // AQUI ESTÁ O SEGREDO: Usamos o RecipeDisplay que já é bonito e sabe ler 'tip'
-            <RecipeDisplay 
-              key={index} 
-              recipe={recipe} 
-              index={index + 1} 
-            />
-          ))}
+        <RecipeFeed />
+      </div>
 
-        </div>
-      )}
     </div>
-  );
+  )
 }

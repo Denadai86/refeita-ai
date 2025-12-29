@@ -2,16 +2,18 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { RecipeDetail } from '@/types/recipe'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+// REMOVIDO: Inicialização global do genAI. 
+// Isso previne que o servidor caia se a chave não carregar instantaneamente.
 
-const MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.0-pro'] as const
+// Ordem de tentativa dos modelos para garantir disponibilidade
+const MODELS = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'] as const
 
 interface GenerateRecipeParams {
   ingredients: string
   restrictions: string
   maxTime: number
   numberOfRecipes?: number
-  cuisinePreference?: string // ← NOVO: agora vem do formulário!
+  cuisinePreference?: string
 }
 
 export async function generateRecipe({
@@ -19,11 +21,18 @@ export async function generateRecipe({
   restrictions,
   maxTime,
   numberOfRecipes = 2,
-  cuisinePreference = 'brasileira', // padrão
+  cuisinePreference = 'brasileira',
 }: GenerateRecipeParams): Promise<RecipeDetail[]> {
-  const cuisineText = cuisinePreference && cuisinePreference !== 'Qualquer' 
-    ? `Estilo de culinária: ${cuisinePreference.toLowerCase()} (adapte os sabores, temperos e nomeação para esse estilo)` 
-    : 'Estilo de culinária: brasileira (padrão)'
+  
+  // 1. Validação de Segurança da Chave
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.error("CRITICAL: GEMINI_API_KEY is missing in environment variables.");
+    throw new Error("Configuração de servidor inválida (API Key ausente).");
+  }
+
+  // 2. Inicialização segura (Lazy Initialization)
+  const genAI = new GoogleGenerativeAI(apiKey);
 
   const prompt = `
 Você é um chef de renome mundial apaixonado, com alma de cozinheiro de rua tailandês, italiano, baiano — depende do que o usuário pedir.
@@ -41,30 +50,30 @@ REGRAS OBRIGATÓRIAS:
 - Dê um NOME CRIATIVO, divertido e inesquecível pra cada receita (ex: "Frango Dormiu no Limão e Acordou Tailandês")
 - Ingredientes que a pessoa já tem → começar com "✓ "
 - Ingredientes extras básicos → começar com "➕ "
-- No final de cada receita, adicione uma "dica do chef" curta, emocional e brasileira (ex: "Se tiver uma música tocando enquanto come, melhor ainda.")
+- No final de cada receita, adicione uma "dica do chef" curta, emocional e brasileira.
 
-Retorne APENAS JSON válido:
-
+Retorne APENAS JSON válido, sem markdown code blocks:
 [
   {
     "name": "Frango Tailandês que Esqueceu de Ser Triste",
-    "ingredients": ["✓ 200g de peito de frango assado", "✓ 2 ovos", "✓ suco de 1 limão rosa", "➕ 1 colher de molho de peixe", "➕ coentro fresco"],
-    "instructions": ["Mistura tudo", "Frita o ovo com amor", "Joga por cima"],
+    "ingredients": ["✓ 200g de frango", "➕ coentro"],
+    "instructions": ["Passo 1", "Passo 2"],
     "prepTime": 12,
     "difficulty": "Fácil",
     "calories": 480,
-    "servings": "1 alma feliz",
-    "tip": "Se apertar mais limão rosa na hora de comer, o limão agradece e você também."
+    "servings": "1 pessoa",
+    "tip": "Dica extra aqui."
   }
 ]
 `.trim()
 
+  // 3. Estratégia de Fallback de Modelos
   for (const modelName of MODELS) {
     try {
       const model = genAI.getGenerativeModel({
         model: modelName,
         generationConfig: {
-          temperature: 0.85,
+          temperature: 0.85, // Criatividade alta para nomes divertidos
           maxOutputTokens: 4000,
           responseMimeType: 'application/json',
         },
@@ -73,6 +82,7 @@ Retorne APENAS JSON válido:
       const result = await model.generateContent(prompt)
       const text = result.response.text()
 
+      // Limpeza de segurança caso a IA retorne Markdown (ex: ```json ... ```)
       const cleaned = text.replace(/^```json\s*|```$/g, '').trim()
       const parsed = JSON.parse(cleaned)
 
@@ -80,10 +90,12 @@ Retorne APENAS JSON válido:
         return parsed as RecipeDetail[]
       }
     } catch (err) {
-      console.warn(`[LLM] Falha com ${modelName}:`, err instanceof Error ? err.message : err)
+      console.warn(`[LLM] Falha silenciosa com ${modelName}:`, err instanceof Error ? err.message : err)
+      // Continua para o próximo modelo no loop
       continue
     }
   }
 
-  throw new Error('Falha ao gerar receitas com Gemini.')
+  // Se todos falharem
+  throw new Error('O Chef está sobrecarregado. Tente novamente em alguns segundos.')
 }
