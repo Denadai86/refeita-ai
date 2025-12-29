@@ -8,7 +8,7 @@ import { notFound } from 'next/navigation';
 import { RecipeDetail } from '@/types/recipe';
 import Link from 'next/link';
 import { ArrowLeft, Sparkles, ChefHat } from 'lucide-react';
-import { ShareWhatsApp } from '@/components/ShareWhatsApp';
+import  ShareWhatsApp  from '@/components/ShareWhatsApp';
 
 type RecipePageProps = {
   params: Promise<{ id: string }>;

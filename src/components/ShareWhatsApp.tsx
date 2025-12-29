@@ -11,7 +11,7 @@ interface ShareWhatsAppProps {
 export default function ShareWhatsApp({ recipeName, recipeId }: ShareWhatsAppProps) {
   const handleShare = () => {
     // URL base do seu SaaS
-    const baseUrl = "https://refeita.acaoleve.com"
+    const baseUrl = "https://refeita-ai.acaoleve.com"
     const shareUrl = recipeId ? `${baseUrl}/${recipeId}` : baseUrl
     
     const message = encodeURIComponent(
