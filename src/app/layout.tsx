@@ -12,6 +12,9 @@ export const metadata: Metadata = {
   title: "Refeita.AI | Receitas Inteligentes com o que você tem",
   description: "Transforme sobras em pratos de chef. Tire uma foto da geladeira e deixe a IA criar sua próxima refeição.",
   keywords: ["receitas", "ia", "culinária", "geladeira", "desperdício zero"],
+  verification: {
+    google: "nfMrvlyYCIRIAYfgcKfOqgz0MuWfnuCJPQLTGMDb2Fw",
+  },
   openGraph: {
     title: "Refeita.AI",
     description: "Sua geladeira, transformada em restaurante.",
