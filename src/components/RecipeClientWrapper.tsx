@@ -1,75 +1,59 @@
 'use client'
 
-import { useState } from 'react'
 import RecipeGenerator from './RecipeGenerator'
 import { RecipeFeed } from './RecipeFeed'
 import { useAuth } from '@/contexts/AuthContext'
-import { LogIn, User, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 
 export default function RecipeClientWrapper() {
   const { user, login, loading } = useAuth();
-  const [showLoginModal, setShowLoginModal] = useState(false);
-
-  // Lógica simples para incentivar login
-  const handleLoginClick = async () => {
-    await login();
-  };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col gap-12">
       
-      {/* 1. Barra de Usuário (Topo) */}
-      <div className="max-w-5xl mx-auto w-full px-4 pt-4 flex justify-end">
-        {loading ? (
-          <div className="h-10 w-32 bg-gray-200 animate-pulse rounded-full"></div>
-        ) : user ? (
-          <div className="flex items-center gap-3 bg-white pl-2 pr-4 py-1.5 rounded-full shadow-sm border border-green-100">
-             {user.photoURL ? (
-               <img src={user.photoURL} alt={user.displayName || 'User'} className="w-8 h-8 rounded-full border border-green-200" />
-             ) : (
-               <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                 <User className="w-4 h-4 text-green-700" />
-               </div>
-             )}
-             <div className="flex flex-col">
-               <span className="text-xs font-bold text-gray-700 leading-none">Olá, {user.displayName?.split(' ')[0]}</span>
-               <span className="text-[10px] text-green-600 font-medium">Membro Grátis</span>
-             </div>
-          </div>
-        ) : (
-          <button 
-            onClick={handleLoginClick}
-            className="group flex items-center gap-2 bg-white hover:bg-green-50 text-gray-700 px-5 py-2 rounded-full shadow-sm border border-gray-200 transition-all hover:border-green-300"
-          >
-            <div className="bg-green-100 p-1 rounded-full group-hover:bg-green-200 transition-colors">
-              <LogIn className="w-4 h-4 text-green-700" />
-            </div>
-            <span className="font-semibold text-sm">Entrar para Salvar</span>
-          </button>
-        )}
-      </div>
-
-      {/* 2. Área Principal (Gerador) */}
-      <div className="flex-grow">
+      {/* 1. Área Principal (O Coração: Gerador de Receitas) */}
+      <section id="generator">
         <RecipeGenerator />
-      </div>
+      </section>
 
-      {/* 3. Área da Comunidade (Feed) */}
-      {/* User anonimo vê isso como prova social para fazer login */}
-      <div className="relative">
+      {/* 2. Área da Comunidade (Prova Social e Engajamento) */}
+      <section id="community" className="relative">
         
-        {/* Banner de Incentivo para Anônimos (Opcional - "Hypor") */}
+        {/* Banner de Incentivo Discreto para Anônimos */}
+        {/* Em vez de um botão gigante, usamos um convite contextual */}
         {!user && !loading && (
-          <div className="bg-indigo-600 text-white py-3 px-4 text-center">
-            <p className="text-sm font-medium flex items-center justify-center gap-2">
-              <Sparkles className="w-4 h-4 text-yellow-300" />
-              <span>Gostou? <button onClick={handleLoginClick} className="underline hover:text-indigo-200 font-bold">Faça login grátis</button> para salvar suas receitas e desbloquear mais limites!</span>
-            </p>
+          <div className="max-w-5xl mx-auto mb-6">
+            <div className="bg-indigo-600/10 border border-indigo-100 rounded-2xl py-4 px-6 text-center">
+              <p className="text-indigo-900 text-sm font-medium flex items-center justify-center gap-2">
+                <Sparkles className="w-4 h-4 text-orange-400 fill-orange-400" />
+                <span>
+                  Quer salvar suas receitas favoritas? 
+                  <button 
+                    onClick={() => login()} 
+                    className="ml-1 text-indigo-600 font-bold hover:underline"
+                  >
+                    Entre agora com sua conta Google
+                  </button>
+                  . É grátis!
+                </span>
+              </p>
+            </div>
           </div>
         )}
+
+        {/* Título do Feed para dar contexto */}
+        <div className="max-w-5xl mx-auto px-4 mb-6">
+          <h2 className="text-2xl font-black text-gray-800 flex items-center gap-2">
+            🔥 Saindo do Forno agora
+            <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full uppercase tracking-tighter animate-pulse">
+              Ao vivo
+            </span>
+          </h2>
+          <p className="text-gray-500 text-sm">Veja o que a comunidade está criando no Refeita-AI</p>
+        </div>
 
         <RecipeFeed />
-      </div>
+      </section>
 
     </div>
   )

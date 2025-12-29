@@ -5,7 +5,7 @@ import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://refeita-ai.acaoleve.com';
 
-  // 1. Páginas Estáticas
+  // Páginas Estáticas (Sempre retornam, independente do banco)
   const staticPages = [
     { url: baseUrl, lastModified: new Date() },
     { url: `${baseUrl}/sobre`, lastModified: new Date() },
@@ -13,24 +13,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/termos`, lastModified: new Date() },
   ];
 
-  // 2. Páginas Dinâmicas (Receitas do Feed)
-  // Pegamos as últimas 100 para não estourar o limite de build da Vercel
-  let recipePages: any[] = [];
   try {
+    // 🟢 PROTEÇÃO: Se a chave da API estiver vazia no build, ele pula a parte do banco
+    if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+      return staticPages;
+    }
+
     const q = query(
       collection(db, 'recipes'),
       where('isPublic', '==', true),
-      limit(100)
+      limit(50)
     );
+    
     const querySnapshot = await getDocs(q);
     
-    recipePages = querySnapshot.docs.map((doc) => ({
+    const recipePages = querySnapshot.docs.map((doc) => ({
       url: `${baseUrl}/${doc.id}`,
       lastModified: new Date(),
     }));
-  } catch (e) {
-    console.error("Erro ao gerar sitemap dinâmico:", e);
-  }
 
-  return [...staticPages, ...recipePages];
+    return [...staticPages, ...recipePages];
+  } catch (e) {
+    console.warn("Sitemap: Banco de dados inacessível no build. Gerando apenas páginas estáticas.");
+    return staticPages;
+  }
 }
