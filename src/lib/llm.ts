@@ -2,11 +2,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { RecipeDetail } from '@/types/recipe'
 
-// REMOVIDO: Inicialização global do genAI. 
-// Isso previne que o servidor caia se a chave não carregar instantaneamente.
-
-// Ordem de tentativa dos modelos para garantir disponibilidade
-const MODELS = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'] as const
+// 🟢 Usando nomes de modelos estáveis e atuais para evitar Erros 404
+const MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3-pro-preview'] as const
 
 interface GenerateRecipeParams {
   ingredients: string
@@ -16,6 +13,10 @@ interface GenerateRecipeParams {
   cuisinePreference?: string
 }
 
+/**
+ * GERAÇÃO DE RECEITAS (Texto -> Objeto)
+ * Focada em transformar a string de ingredientes em receitas estruturadas.
+ */
 export async function generateRecipe({
   ingredients,
   restrictions,
@@ -24,78 +25,88 @@ export async function generateRecipe({
   cuisinePreference = 'brasileira',
 }: GenerateRecipeParams): Promise<RecipeDetail[]> {
   
-  // 1. Validação de Segurança da Chave
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.error("CRITICAL: GEMINI_API_KEY is missing in environment variables.");
-    throw new Error("Configuração de servidor inválida (API Key ausente).");
-  }
+  if (!apiKey) throw new Error("Configuração GEMINI_API_KEY não encontrada.");
 
-  // 2. Inicialização segura (Lazy Initialization)
   const genAI = new GoogleGenerativeAI(apiKey);
 
   const prompt = `
-Você é um chef de renome mundial apaixonado, com alma de cozinheiro de rua tailandês, italiano, baiano — depende do que o usuário pedir.
-
-Ingredientes que a pessoa TEM em casa (OBRIGATÓRIO usar):
-${ingredients}
-
-${restrictions && restrictions !== 'Nenhuma' ? `Restrições: ${restrictions}` : ''}
-Tempo máximo: ${maxTime} minutos
-Estilo de culinária: ${cuisinePreference === 'Qualquer' ? 'brasileira com liberdade total' : cuisinePreference}
+Você é um chef de renome mundial especializado em cozinha criativa e desperdício zero.
+Ingredientes disponíveis: ${ingredients}
+Restrições alimentares: ${restrictions}
+Tempo máximo de preparo: ${maxTime} minutos
+Estilo gastronômico: ${cuisinePreference}
 
 Gere EXATAMENTE ${numberOfRecipes} receitas diferentes.
+REGRAS:
+- Use nomes divertidos e criativos.
+- Inclua uma "dica do chef" emocional ao final.
 
-REGRAS OBRIGATÓRIAS:
-- Dê um NOME CRIATIVO, divertido e inesquecível pra cada receita (ex: "Frango Dormiu no Limão e Acordou Tailandês")
-- Ingredientes que a pessoa já tem → começar com "✓ "
-- Ingredientes extras básicos → começar com "➕ "
-- No final de cada receita, adicione uma "dica do chef" curta, emocional e brasileira.
-
-Retorne APENAS JSON válido, sem markdown code blocks:
-[
-  {
-    "name": "Frango Tailandês que Esqueceu de Ser Triste",
-    "ingredients": ["✓ 200g de frango", "➕ coentro"],
-    "instructions": ["Passo 1", "Passo 2"],
-    "prepTime": 12,
-    "difficulty": "Fácil",
-    "calories": 480,
-    "servings": "1 pessoa",
-    "tip": "Dica extra aqui."
-  }
-]
+Retorne APENAS um array JSON válido:
+[{ "name": "Nome", "ingredients": ["✓ item"], "instructions": ["passo"], "prepTime": 10, "difficulty": "Fácil", "tip": "dica" }]
 `.trim()
 
-  // 3. Estratégia de Fallback de Modelos
   for (const modelName of MODELS) {
     try {
       const model = genAI.getGenerativeModel({
         model: modelName,
         generationConfig: {
-          temperature: 0.85, // Criatividade alta para nomes divertidos
-          maxOutputTokens: 4000,
+          temperature: 0.8,
+          maxOutputTokens: 2048,
           responseMimeType: 'application/json',
         },
       })
 
       const result = await model.generateContent(prompt)
       const text = result.response.text()
-
-      // Limpeza de segurança caso a IA retorne Markdown (ex: ```json ... ```)
+      
+      // Limpeza robusta de blocos de código markdown
       const cleaned = text.replace(/^```json\s*|```$/g, '').trim()
       const parsed = JSON.parse(cleaned)
 
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed as RecipeDetail[]
-      }
+      if (Array.isArray(parsed)) return parsed as RecipeDetail[]
     } catch (err) {
-      console.warn(`[LLM] Falha silenciosa com ${modelName}:`, err instanceof Error ? err.message : err)
-      // Continua para o próximo modelo no loop
-      continue
+      console.warn(`[LLM-Generator] Falha com modelo ${modelName}. Tentando próximo...`);
+      continue;
     }
   }
+  throw new Error('O Chef IA está temporariamente ocupado. Tente novamente em alguns segundos.');
+}
 
-  // Se todos falharem
-  throw new Error('O Chef está sobrecarregado. Tente novamente em alguns segundos.')
+/**
+ * DETECÇÃO DE INGREDIENTES (Imagem -> Texto)
+ * Utiliza capacidades multimodais para ler fotos de geladeiras e despensas.
+ */
+export async function detectIngredientsFromImages(base64Images: string[]): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("Configuração GEMINI_API_KEY não encontrada.");
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  
+  // Flash é ideal para visão devido à velocidade e custo
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+  const prompt = `
+Analise cuidadosamente as imagens anexadas de uma geladeira ou armário.
+Sua tarefa é listar APENAS os ingredientes comestíveis que você consegue identificar.
+Retorne apenas os nomes dos itens separados por vírgula.
+Se não identificar nenhum alimento, responda exatamente: "Nenhum ingrediente detectado".
+`.trim();
+
+  // Mapeia imagens para o formato inlineData aceito pela API do Google
+  const imageParts = base64Images.map(base64 => ({
+    inlineData: {
+      data: base64,
+      mimeType: "image/jpeg" // Assegure-se que o frontend envia JPEG ou ajuste dinamicamente
+    }
+  }));
+
+  try {
+    const result = await model.generateContent([prompt, ...imageParts]);
+    const response = await result.response;
+    return response.text().trim();
+  } catch (error) {
+    console.error("Erro na detecção visual Gemini:", error);
+    throw new Error("O Chef não conseguiu analisar as fotos. Verifique a iluminação e tente novamente.");
+  }
 }

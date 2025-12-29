@@ -41,7 +41,7 @@ export async function saveRecipe(data: Omit<SavedRecipe, 'id' | 'createdAt' | 'l
 }
 
 // Buscar Feed Público
-export async function getPublicFeed(max = 10) {
+export async function getPublicFeed(max = 9) {
   try {
     const q = query(
       collection(db, RECIPES_COLLECTION),

@@ -6,8 +6,7 @@ import { RecipeDetail } from '@/types/recipe';
 import { ChefHat, Clock, Users, Zap, Lightbulb, Flame } from 'lucide-react';
 import React from 'react';
 
-// ... (MetaItem e Tipagem mantidos) ...
-const MetaItem = ({ icon, value, label }: { icon: any, value: any, label: string }) => (
+const MetaItem = ({ icon, value, label }: { icon: React.ReactNode, value: string | number, label: string }) => (
   <div className="flex flex-col items-center p-3">
     <span className="text-red-500 mb-1">{icon}</span>
     <span className="text-lg font-bold text-gray-900">{value}</span>
@@ -19,12 +18,12 @@ export default function RecipeDisplay({ recipe, index }: { recipe: RecipeDetail,
   if (!recipe) return null;
 
   const name = recipe.name || `Receita Surpresa #${index}`;
-  const tip = recipe.tip || null; // Manter como null se não houver tip
+  const tip = recipe.tip || null;
 
   return (
     <div className="bg-white rounded-xl shadow-2xl overflow-hidden border-t-8 border-red-500 mb-10 transition-transform hover:scale-[1.01]">
       
-      {/* 1. CABEÇALHO COM NOME CRIATIVO */}
+      {/* 1. CABEÇALHO */}
       <div className="p-8 text-center border-b border-gray-100 bg-gradient-to-b from-white to-gray-50">
         <span className="inline-block py-1 px-3 rounded-full bg-red-100 text-red-600 text-xs font-bold tracking-widest uppercase mb-4">
           Opção #{index}
@@ -46,10 +45,10 @@ export default function RecipeDisplay({ recipe, index }: { recipe: RecipeDetail,
 
       <div className="p-8 space-y-8">
         
-        {/* 3. CONTEÚDO PRINCIPAL: 2 COLUNAS (Fica no topo do bloco de conteúdo) */}
+        {/* 3. CONTEÚDO PRINCIPAL (DUAS COLUNAS) */}
         <div className="grid md:grid-cols-2 gap-10">
             
-          {/* INGREDIENTES */}
+          {/* COLUNA: INGREDIENTES */}
           <div>
             <h3 className="flex items-center text-xl font-bold text-red-600 mb-4 pb-2 border-b border-red-100">
               <Lightbulb className="mr-2 h-5 w-5" /> Ingredientes
@@ -72,7 +71,7 @@ export default function RecipeDisplay({ recipe, index }: { recipe: RecipeDetail,
             </ul>
           </div>
 
-          {/* MODO DE PREPARO */}
+          {/* COLUNA: MODO DE PREPARO */}
           <div>
             <h3 className="flex items-center text-xl font-bold text-red-600 mb-4 pb-2 border-b border-red-100">
               <Zap className="mr-2 h-5 w-5" /> Modo de Preparo
@@ -90,9 +89,9 @@ export default function RecipeDisplay({ recipe, index }: { recipe: RecipeDetail,
           </div>
         </div>
         
-        {/* 4. DICA DO CHEF (MOVIDO PARA AQUI - Fica no final do bloco de conteúdo) */}
+        {/* 4. DICA DO CHEF (RODAPÉ DO CONTEÚDO) */}
         {tip && (
-          <div className="flex gap-4 p-6 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg shadow-md">
+          <div className="flex gap-4 p-6 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg shadow-md mt-6">
             <ChefHat className="text-yellow-600 shrink-0 h-8 w-8" />
             <div>
               <h3 className="font-bold text-yellow-800 text-lg mb-1">Dica do Chef</h3>
@@ -102,7 +101,6 @@ export default function RecipeDisplay({ recipe, index }: { recipe: RecipeDetail,
             </div>
           </div>
         )}
-
       </div>
     </div>
   );

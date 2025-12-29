@@ -1,31 +1,16 @@
 // src/actions/recipe.ts
 "use server";
 
-import { generateRecipe } from "@/lib/llm";
+import { generateRecipe, detectIngredientsFromImages } from "@/lib/llm";
 import {
   RecipeInputSchema,
   RecipeActionState,
   RecipeDetail,
-  RecipeBatch,
   LLMInput
 } from "@/types/recipe";
-import { redirect } from "next/navigation";
-import { v4 as uuidv4 } from 'uuid'; // Instale: npm i uuid @types/uuid
 
 // ============================================================================
-// 1. MOCK DATABASE (Banco em Memória)
-// ============================================================================
-/**
- * ⚠️ NOTA DE ENGENHARIA:
- * Como não temos um banco de dados real configurado ainda (Postgres/Prisma ou Firebase),
- * estamos usando um Map global para armazenar as receitas em memória enquanto o servidor roda.
- * * Em produção, isso DEVE ser substituído por chamadas reais ao banco.
- * Se o servidor reiniciar, esses dados somem.
- */
-const RECIPE_STORE = new Map<string, RecipeBatch>();
-
-// ============================================================================
-// 2. HELPERS
+// 1. HELPERS
 // ============================================================================
 
 function getMaxTime(prepTime: string): number {
@@ -39,7 +24,7 @@ function getMaxTime(prepTime: string): number {
 }
 
 // ============================================================================
-// 3. SERVER ACTION (Geração)
+// 2. SERVER ACTION (Geração de Receita via Texto)
 // ============================================================================
 
 export async function generateRecipeAction(
@@ -64,7 +49,7 @@ export async function generateRecipeAction(
       success: false,
       message: "Ops! Faltou preencher algo corretamente.",
       errorDetails: Object.entries(fieldErrors).map(([field, messages]) => ({
-        field,
+        field: field,
         message: Array.isArray(messages) ? messages[0] : (messages ?? "Erro inválido"),
       })),
     };
@@ -73,7 +58,6 @@ export async function generateRecipeAction(
   const validated: LLMInput = result.data;
 
   // B. Preparação do Payload para LLM
-  // Note que agora incluímos cuisinePreference explicitamente
   const llmPayload = {
     ingredients: validated.mainIngredients,
     restrictions: validated.restrictions ?? "Nenhuma",
@@ -83,35 +67,20 @@ export async function generateRecipeAction(
   };
 
   try {
-    // C. Chamada à Inteligência (Gemini)
+    // C. Chamada ao Gemini
     const generatedRecipes: RecipeDetail[] = await generateRecipe(llmPayload);
 
     if (!generatedRecipes || generatedRecipes.length === 0) {
       return {
         success: false,
-        message: "O Chef IA travou e não conseguiu criar nada com esses ingredientes. Tente simplificar.",
+        message: "O Chef IA não conseguiu criar nada com esses ingredientes. Tente outros!",
       };
     }
 
-    // D. Persistência (Salvar no Mock DB)
-    const batchId = uuidv4(); // Gera um ID único
-    const newBatch: RecipeBatch = {
-      id: batchId,
-      userId: "guest-user", // Futuramente pegar da sessão
-      inputData: validated,
-      generatedRecipes: generatedRecipes,
-      createdAt: Date.now(),
-    };
-
-    // Salvando na memória
-    RECIPE_STORE.set(batchId, newBatch);
-
-    // E. Retorno de Sucesso
-    // Retornamos o ID para que o componente Client possa fazer o redirect
+    // E. Retorno de Sucesso para o Client (O Firestore salva no RecipeGenerator.tsx)
     return {
       success: true,
-      message: "Receitas criadas com sucesso! Redirecionando...",
-      recipeBatchId: batchId,
+      message: "Receitas criadas com sucesso!",
       recipes: generatedRecipes,
     };
 
@@ -119,29 +88,33 @@ export async function generateRecipeAction(
     console.error("❌ Erro Crítico na Action:", error);
     return {
       success: false,
-      message: "Erro interno no servidor de IA. Tente novamente em instantes.",
+      message: "Erro ao conectar com a IA. Tente novamente em instantes.",
     };
   }
 }
 
 // ============================================================================
-// 4. SERVER FUNCTION (Leitura para a Página [id])
+// 3. SERVER ACTION (Identificação de Ingredientes via Foto)
 // ============================================================================
 
-/**
- * Busca o lote de receitas pelo ID.
- * Usada pelo Server Component em src/app/[id]/page.tsx
- */
-export async function getRecipeBatchById(id: string): Promise<RecipeBatch | null> {
-  // Simula um delay de banco de dados para ver o loading state (opcional)
-  // await new Promise(resolve => setTimeout(resolve, 500));
-  
-  const batch = RECIPE_STORE.get(id);
+export async function identifyIngredientsAction(base64Images: string[]) {
+  try {
+    if (!base64Images || base64Images.length === 0) {
+      return { success: false, error: "Nenhuma imagem recebida." };
+    }
 
-  if (!batch) {
-    console.warn(`⚠️ Batch ${id} não encontrado no store em memória.`);
-    return null;
+    // Chama a função de visão que criamos no lib/llm.ts
+    const ingredients = await detectIngredientsFromImages(base64Images);
+
+    return {
+      success: true,
+      ingredients: ingredients,
+    };
+  } catch (error: any) {
+    console.error("Erro na identifyIngredientsAction:", error);
+    return {
+      success: false,
+      error: error.message || "Erro ao processar as imagens.",
+    };
   }
-
-  return batch;
 }

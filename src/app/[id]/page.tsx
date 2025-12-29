@@ -1,90 +1,104 @@
 // src/app/[id]/page.tsx (Layout do Lote)
 
-import { getRecipeBatchById } from '@/actions/recipe';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import RecipeDisplay from '@/components/RecipeDisplay';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { RecipeBatch, RecipeDetail } from '@/types/recipe'; 
+import { RecipeDetail } from '@/types/recipe';
+import Link from 'next/link';
+import { ArrowLeft, Sparkles, ChefHat } from 'lucide-react';
+import { ShareWhatsApp } from '@/components/ShareWhatsApp';
 
 type RecipePageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
-// -------------------------------------------------------------------
-// 1. Geração de Metadados (Mantido)
-// -------------------------------------------------------------------
 export async function generateMetadata({ params }: RecipePageProps): Promise<Metadata> {
-  // Assumindo que getRecipeBatchById é tipado para retornar Promise<RecipeBatch | null>
-  const batch: RecipeBatch | null = await getRecipeBatchById(params.id); 
-  
-  if (!batch) {
-    return { title: "Receitas não encontradas | Refeita.AI" };
+  const { id } = await params;
+  const docRef = doc(db, 'recipes', id);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) {
+    return { title: "Receita não encontrada | Refeita.AI" };
   }
 
-  const ingredients = batch.inputData.mainIngredients
-    .split(',')
-    .map((s: string) => s.trim())
-    .join(', ');
+  const data = docSnap.data();
+  const recipeName = data.recipeTitle || "Receita Especial";
 
   return {
-    title: `Opções com ${ingredients} | Refeita.AI`,
-    description: `Descubra as receitas criadas pela IA, incluindo nomes criativos e dicas do Chef, usando ${ingredients}.`,
+    title: `${recipeName} | Criado no Refeita.AI`,
+    description: `Veja como fazer ${recipeName} usando ${data.ingredients}. Receita gerada por IA.`,
+    openGraph: {
+      title: recipeName,
+      description: `Transformamos ${data.ingredients} nesta delícia. Confira!`,
+      type: 'article',
+    }
   };
 }
 
-// -------------------------------------------------------------------
-// 2. Componente Principal (UX Aprimorada)
-// -------------------------------------------------------------------
-export default async function RecipeBatchPage({ params }: RecipePageProps) {
-  const recipeBatch: RecipeBatch | null = await getRecipeBatchById(params.id);
+export default async function RecipeDetailPage({ params }: RecipePageProps) {
+  const { id } = await params;
   
-  // Tratamento de Not Found
-  if (!recipeBatch || !recipeBatch.generatedRecipes || recipeBatch.generatedRecipes.length === 0) {
-    notFound(); 
+  const docRef = doc(db, 'recipes', id);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) {
+    notFound();
   }
 
-  return (
-    // Fundo cinza claro para contraste e destaque dos cards brancos
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12"> 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Cabeçalho do Lote - Destaque Visual */}
-        <header className="mb-10 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border-l-8 border-red-500/80">
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white">
-            🎉 Suas Criações Culinárias Estão Prontas!
-          </h1>
-          <p className="text-lg text-gray-700 dark:text-gray-300 mt-3">
-            Geramos **{recipeBatch.generatedRecipes.length}** ideias. Escolha a sua próxima história:
-          </p>
-          <p className="text-xl mt-3">
-            Baseado em:
-            <span className="font-extrabold text-red-600 dark:text-red-400 ml-2">
-              {recipeBatch.inputData.mainIngredients}
-            </span>
-          </p>
-          {recipeBatch.inputData.restrictions && (
-            <p className="text-md text-gray-600 dark:text-gray-500 mt-2 italic border-t pt-2 border-gray-100 dark:border-gray-700">
-              Filtro: {recipeBatch.inputData.restrictions}
-            </p>
-          )}
-        </header>
+  const data = docSnap.data();
+  const recipeDetail: RecipeDetail = JSON.parse(data.recipeContent);
 
-        {/* Listagem das Receitas com espaçamento generoso */}
-        <div className="space-y-10">
-          {recipeBatch.generatedRecipes.map((recipe: RecipeDetail, index: number) => (
-            <RecipeDisplay
-              key={recipe.name} 
-              recipe={recipe}
-              index={index + 1}
-            />
-          ))}
+  return (
+    <main className="min-h-screen bg-gray-50 pb-20">
+      <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 text-gray-600 hover:text-green-600 transition-colors font-medium">
+            <ArrowLeft className="w-4 h-4" />
+            Voltar ao Início
+          </Link>
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-orange-400" />
+            <span className="text-sm font-bold text-gray-400 uppercase tracking-tighter">Comunidade</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 pt-10">
+        <div className="mb-8 p-6 bg-indigo-50 rounded-2xl border border-indigo-100">
+          <div className="flex items-center gap-3 mb-2">
+            <ChefHat className="text-indigo-600 w-5 h-5" />
+            <span className="text-indigo-900 font-bold uppercase text-xs tracking-widest">
+              Inspirado por {data.userName || 'um Chef Anônimo'}
+            </span>
+          </div>
+          <h2 className="text-lg text-indigo-900 leading-relaxed">
+            Criada a partir de: <span className="font-bold underline decoration-indigo-300">{data.ingredients}</span>
+          </h2>
         </div>
 
-        <footer className="mt-16 text-center text-gray-500 dark:text-gray-400">
-          <p className="text-sm">
-            Refeita.AI — Criando magia com o que você já tem.
+        <RecipeDisplay recipe={recipeDetail} index={1} />
+
+        <div className="mt-8 flex flex-col items-center gap-6">
+          <ShareWhatsApp recipeName={recipeDetail.name} recipeId={id} />
+          <p className="text-gray-400 text-xs italic">
+            Compartilhe esta ideia com seus amigos e família!
           </p>
-        </footer>
+        </div>
+
+        <div className="mt-12 bg-green-600 rounded-3xl p-10 text-center text-white shadow-xl shadow-green-200">
+          <h3 className="text-2xl font-black mb-2">Gostou dessa sugestão?</h3>
+          <p className="text-green-100 mb-8 max-w-md mx-auto">
+            Tire uma foto da sua geladeira e deixe nossa IA criar algo único para você também!
+          </p>
+          <Link 
+            href="/" 
+            className="inline-block bg-white text-green-700 font-extrabold py-4 px-10 rounded-full hover:scale-105 transition-transform shadow-lg"
+          >
+            Criar Minha Própria Receita 🚀
+          </Link>
+        </div>
       </div>
     </main>
   );

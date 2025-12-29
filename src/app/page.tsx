@@ -1,4 +1,3 @@
-// src/app/page.tsx
 'use client'
 
 import RecipeClientWrapper from '@/components/RecipeClientWrapper'
@@ -6,53 +5,43 @@ import RecipeClientWrapper from '@/components/RecipeClientWrapper'
 export default function Home() {
   return (
     <>
-      {/* BOTÃO FIXO NO CANTO SUPERIOR DIREITO - FAIXA VERDE */}
+      {/* BOTÃO FIXO - PORTAL */}
       <a
         href="https://acaoleve.com"
         className="fixed top-4 right-4 z-50 bg-sky-700 hover:bg-sky-800 text-white font-semibold py-3 px-7 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center gap-2"
       >
         <span className="text-xl">🔙</span>
-        <span>Voltar ao Portal</span>
+        <span className="hidden sm:inline">Voltar ao Portal</span>
       </a>
 
-      {/* Conteúdo principal da Refeita AI */}
-      <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
-        {/* Header lindo */}
-        <header className="bg-green-600 text-white p-6 shadow-xl relative">
-          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-5">
-              {/* Nota: Em produção, idealmente usaríamos <Image /> do Next.js, mas mantive img para preservar seu layout exato */}
+      <div className="bg-gradient-to-b from-green-50 to-white">
+        <header className="bg-green-600 text-white p-8 shadow-xl relative overflow-hidden">
+          {/* Efeito visual discreto no header */}
+          <div className="absolute top-0 right-0 opacity-10 translate-x-1/4 -translate-y-1/4">
+             <img src="/android-chrome-512x512.png" className="w-64 h-64" alt="" />
+          </div>
+
+          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6 relative z-10">
+            <div className="flex items-center gap-6 text-center sm:text-left flex-col sm:flex-row">
               <img
                 src="/android-chrome-512x512.png" 
                 alt="Refeita AI" 
-                className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg"
+                className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-2xl"
               />
               <div>
-                <h1 className="text-4xl font-black tracking-tight">Refeita AI</h1>
-                <p className="text-green-100 text-lg">Transforme sua geladeira aleatória em uma experiência gastronômica global.</p>
+                <h1 className="text-5xl font-black tracking-tighter">Refeita AI</h1>
+                <p className="text-green-100 text-xl max-w-xl">
+                  Transforme sua geladeira aleatória em uma experiência gastronômica global.
+                </p>
               </div>
             </div>
           </div>
         </header>
 
-        {/* Wrapper com formulário + receitas */}
-        <main className="py-10">
+        <main className="py-12">
           <RecipeClientWrapper />
         </main>
-
-        {/* Rodapé discreto */}
-        <footer className="mt-20 py-8 bg-gray-900 text-gray-400 text-center text-sm">
-          <p>
-            Feito com sabor e carinho {' '}
-            <a href="https://acaoleve.com" target="_blank" className="text-emerald-400 hover:text-emerald-300 font-bold">
-              Ação Leve
-            </a>
-          </p>
-        </footer>
       </div>
     </>
   )
 }
-
-// REMOVIDO: export const runtime = 'edge' 
-// Motivo: Causava erro 503 e conflito com bibliotecas pesadas de IA na Vercel Hobby.

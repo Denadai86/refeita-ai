@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { getPublicFeed, SavedRecipe } from '@/lib/firestore-service';
 import { Loader2, ChefHat, Heart } from 'lucide-react';
+import Link from 'next/link';
 
 export function RecipeFeed() {
   const [feed, setFeed] = useState<SavedRecipe[]>([]);
@@ -55,7 +56,7 @@ export function RecipeFeed() {
                   <Heart className="w-4 h-4" /> {recipe.likes || 0}
                 </button>
                 <button className="text-indigo-600 font-medium hover:underline">
-                  Ver Receita →
+                  <Link href={`/${recipe.id}`}>Ver Receita →</Link>
                 </button>
               </div>
             </div>
