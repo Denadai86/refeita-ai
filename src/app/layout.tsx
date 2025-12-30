@@ -1,11 +1,23 @@
+// src/app/layout.tsx
 import type { Metadata } from "next";
-import { Inter } from "next/font/google"; 
+import { Inter, Playfair_Display } from "next/font/google"; // Adicionada a Playfair
 import { AuthProvider } from '@/contexts/AuthContext';
 import CookieBanner from '@/components/CookieBanner';
 import Footer from '@/components/Footer';
+import Header from '@/components/Header'; // Não esqueça de importar o Header
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+// Fonte Sans para leitura técnica e botões
+const inter = Inter({ 
+  subsets: ["latin"], 
+  variable: "--font-inter" 
+});
+
+// Fonte Serifada para títulos de receitas (O toque de "apaixonar")
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-playfair",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://refeita-ai.acaoleve.com'),
@@ -42,14 +54,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} scroll-smooth`}>
-      <body className="antialiased bg-gray-50 text-gray-900 selection:bg-green-100">
+    <html lang="pt-BR" className={`${inter.variable} ${playfair.variable} scroll-smooth`}>
+      <body className="antialiased bg-[#fdfcf8] text-stone-800 selection:bg-orange-100">
         <AuthProvider>
-          {/* O Flex e Min-h-screen garantem que o footer fique sempre no rodapé */}
           <div className="min-h-screen flex flex-col">
-            <div className="flex-grow">
+            {/* Adicionado o Header aqui para aparecer em todas as páginas */}
+            <Header />
+            
+            <main className="flex-grow">
               {children}
-            </div>
+            </main>
+            
             <Footer />
             <CookieBanner />
           </div>

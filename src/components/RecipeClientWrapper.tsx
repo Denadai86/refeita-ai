@@ -3,7 +3,7 @@
 'use client'
 
 import RecipeGenerator from './RecipeGenerator'
-import RecipeFeed from './RecipeFeed'
+//import RecipeFeed from './RecipeFeed'
 import { useAuth } from '@/contexts/AuthContext'
 import { Sparkles } from 'lucide-react'
 
@@ -43,18 +43,8 @@ export default function RecipeClientWrapper() {
           </div>
         )}
 
-        {/* Título do Feed para dar contexto */}
-        <div className="max-w-5xl mx-auto px-4 mb-6">
-          <h2 className="text-2xl font-black text-gray-800 flex items-center gap-2">
-            🔥 Saindo do Forno agora
-            <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full uppercase tracking-tighter animate-pulse">
-              Ao vivo
-            </span>
-          </h2>
-          <p className="text-gray-500 text-sm">Veja o que a comunidade está criando no Refeita-AI</p>
-        </div>
 
-        <RecipeFeed />
+
       </section>
 
     </div>
