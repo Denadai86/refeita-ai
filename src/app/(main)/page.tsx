@@ -1,6 +1,7 @@
 // src/app/(main)/page.tsx
 import RecipeGenerator from '@/components/RecipeGenerator';
 
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-gray-50">
