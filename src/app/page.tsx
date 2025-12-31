@@ -1,7 +1,9 @@
+// src/app/page.tsx
 'use client'
 
 import RecipeClientWrapper from '@/components/RecipeClientWrapper'
-//import Header from '@/components/Header' // Importando o componente novo
+//mport Header from '@/components/Header' // Importando o componente novo
+//import AdminSeeder from '@/components/AdminSeeder';
 
 export default function Home() {
   return (
@@ -19,7 +21,6 @@ export default function Home() {
           </p>
         </div>
       </div>
-
       {/* 4. GERADOR (SUBINDO O CONTEÚDO PARA CIMA DO BANNER) */}
       <main className="-mt-12 relative z-10 px-4">
         <RecipeClientWrapper />
