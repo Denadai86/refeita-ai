@@ -22,6 +22,9 @@ export interface SavedRecipe {
   createdAt: any;
   likes: number;
 }
+import { doc, updateDoc, increment } from 'firebase/firestore'
+
+
 
 const RECIPES_COLLECTION = 'recipes';
 
@@ -59,4 +62,13 @@ export async function getPublicFeed(max = 9) {
     console.error("Erro ao buscar feed:", error);
     return [];
   }
+}
+
+export async function toggleRecipeLike(recipeId: string, isLiking: boolean) {
+  const recipeRef = doc(db, 'recipes', recipeId)
+  
+  // Se está dando like, soma 1. Se tirando, subtrai 1.
+  await updateDoc(recipeRef, {
+    likes: increment(isLiking ? 1 : -1)
+  })
 }

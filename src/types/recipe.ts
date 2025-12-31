@@ -56,22 +56,18 @@ export type RecipeInput = LLMInput;
  * Representa uma única receita gerada pela LLM,
  * alinhada EXATAMENTE com a saída do prompt.
  */
-export interface RecipeDetail { // Mudei para interface para ser mais limpo
-  name: string;            // NOME CRIATIVO (Substitui 'recipeName' e 'description')
-  // Ingredientes como array de strings, contendo os marcadores ✓ e ➕
-  ingredients: string[]; 
-  instructions: string[];
-  prepTime: number;        // em minutos
-  difficulty: string;      // "Fácil" | "Médio" | "Difícil"
-  servings?: string;        // Retornado como string (ex: '1 alma feliz')
-  calories?: number;        // Opcional
-  
-  // 🟢 NOVA PROPRIEDADE: A DICA DO CHEF
-  tip?: string;            // A bala de prata emocional (singular)
-
-  // Campos removidos que não são gerados pela LLM:
-  // recipeName, description, restrictions, maxTime, tips[]
-};
+export interface RecipeDetail {
+  id?: string; // Adicionado ID
+  name: string;
+  ingredients: string[];
+  instructions: string[];
+  prepTime: number; // ou string, dependendo do seu form
+  difficulty: string;
+  calories: string;
+  tip: string;
+  servings?: string;
+  likes?: number; // Adicionado Likes
+}
 
 // Mantido como array
 export type RecipeResponse = RecipeDetail[];
